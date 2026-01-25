@@ -222,7 +222,7 @@ class KFIR_Custom_Pricing_Agent {
 						<thead>
 							<tr>
 								<th>מוצר</th>
-								<th>מחיר יחידה</th>
+								<th>מחיר</th>
 								<th>כמות</th>
 								<th>סה"כ</th>
 								<th>פעולות</th>
@@ -604,21 +604,25 @@ class KFIR_Custom_Pricing_Agent {
 			wp_send_json_error( [ 'message' => 'מוצר לא נמצא' ] );
 		}
 
-		$price = $product->get_price();
+		$base_price = $product->get_price();
+		$custom_price = null;
 		$customer_id = absint( $_GET['customer_id'] ?? 0 );
+		
 		if ( $customer_id ) {
 			$pricing = new KFIR_Custom_Pricing();
 			$custom_price = $pricing->get_customer_price( $customer_id, $product_id );
-			if ( $custom_price ) {
-				$price = $custom_price;
-			}
 		}
+
+		// המחיר הסופי - מותאם אם קיים, אחרת בסיסי
+		$final_price = $custom_price !== null ? $custom_price : $base_price;
 
 		wp_send_json_success( [
 			'id' => $product_id,
 			'name' => $product->get_name(),
 			'sku' => $product->get_sku(),
-			'price' => $price,
+			'price' => $base_price, // מחיר בסיסי
+			'custom_price' => $custom_price, // מחיר מותאם (null אם אין)
+			'final_price' => $final_price, // מחיר סופי לשימוש
 		] );
 	}
 

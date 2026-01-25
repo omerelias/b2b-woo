@@ -29,30 +29,43 @@
             
             // checkbox מוצרים - גם עדכון orderItems כשמסמנים/מבטלים
             $(document).on('change', '.product-checkbox', function(e) {
-                this.updateOrderSummary();
                 // עדכון orderItems לפי מה שנבחר
                 const $item = $(e.target).closest('.product-item');
                 const productId = parseInt($item.data('product-id'));
                 const isChecked = $(e.target).is(':checked');
                 
                 if (isChecked) {
-                    // הוספה אם לא קיים
+                    // עדכון או הוספה
                     const existingItem = this.orderItems.find(item => item.id == productId);
-                    if (!existingItem && productId && !isNaN(productId)) {
-                        const quantity = parseInt($item.find('.product-quantity').val()) || 1;
-                        const productName = $item.find('strong').text() || 'מוצר ללא שם';
-                        
-                        let price = 0;
-                        const $customPrice = $item.find('.custom-price');
-                        if ($customPrice.length && $customPrice.text().includes('מחיר ללקוח')) {
-                            price = parseFloat($customPrice.text().replace(/[^\d.]/g, '')) || 0;
+                    const quantity = parseInt($item.find('.product-quantity').val()) || 1;
+                    const productName = $item.find('strong').text() || 'מוצר ללא שם';
+                    
+                    let price = 0;
+                    const $customPrice = $item.find('.custom-price');
+                    if ($customPrice.length && $customPrice.text().includes('מחיר ללקוח')) {
+                        // חילוץ מחיר מותאם
+                        const priceText = $customPrice.text().replace(/[^\d.]/g, '');
+                        price = priceText ? parseFloat(priceText) : 0;
+                    } else {
+                        // חילוץ מחיר רגיל
+                        const $productPrice = $item.find('.product-price');
+                        if ($productPrice.length) {
+                            const priceText = $productPrice.text().replace(/[^\d.]/g, '');
+                            price = priceText ? parseFloat(priceText) : 0;
                         } else {
-                            const priceText = $item.find('.product-price').text();
-                            if (priceText) {
-                                price = parseFloat(priceText.replace(/[^\d.]/g, '')) || 0;
-                            }
+                            // אם יש רק custom-price עם ₪0.00
+                            const priceText = $customPrice.text().replace(/[^\d.]/g, '');
+                            price = priceText ? parseFloat(priceText) : 0;
                         }
-                        
+                    }
+                    
+                    if (existingItem) {
+                        // עדכון המחיר והכמות אם המוצר כבר קיים
+                        existingItem.price = price;
+                        existingItem.quantity = quantity;
+                        existingItem.name = productName;
+                    } else if (productId && !isNaN(productId)) {
+                        // הוספה אם לא קיים
                         this.orderItems.push({
                             id: productId,
                             name: productName,
@@ -64,6 +77,9 @@
                     // הסרה אם לא מסומן
                     this.orderItems = this.orderItems.filter(item => item.id != productId);
                 }
+                
+                // עדכון הסיכום אחרי השינוי
+                this.updateOrderSummary();
             }.bind(this));
             
             // עריכת כמות - גם עדכון orderItems
@@ -217,16 +233,28 @@
             $container.empty();
 
             products.forEach((product) => {
-                // הוספה ל-orderItems אם לא קיים
+                // חישוב המחיר הסופי
+                const basePrice = parseFloat(product.price || 0);
+                const customPrice = product.custom_price !== null && product.custom_price !== undefined 
+                    ? parseFloat(product.custom_price) : null;
+                const finalPrice = customPrice !== null ? customPrice : basePrice;
+                
+                // הוספה/עדכון ב-orderItems
                 const existingItem = this.orderItems.find(item => item.id == product.id);
                 if (!existingItem) {
-                    const price = parseFloat(product.custom_price || product.price || 0);
                     this.orderItems.push({
                         id: parseInt(product.id),
                         name: product.name || 'מוצר ללא שם',
-                        price: price,
+                        price: finalPrice, // מחיר סופי לשימוש
+                        basePrice: basePrice, // מחיר בסיסי לתצוגה
+                        customPrice: customPrice, // מחיר מותאם לתצוגה
                         quantity: 1
                     });
+                } else {
+                    // עדכון המחיר אם המוצר כבר קיים
+                    existingItem.price = finalPrice;
+                    existingItem.basePrice = basePrice;
+                    existingItem.customPrice = customPrice;
                 }
                 
                 const $item = this.createProductItem({
@@ -237,7 +265,34 @@
                     custom_price: product.custom_price
                 }, true);
                 $container.append($item);
+                
+                // עדכון המחיר ב-orderItems לפי מה שמוצג ב-DOM (אם המוצר מסומן)
+                if ($item.find('.product-checkbox').is(':checked')) {
+                    const existingItem = this.orderItems.find(item => item.id == product.id);
+                    if (existingItem) {
+                        // חילוץ המחיר מה-DOM
+                        let price = 0;
+                        const $customPrice = $item.find('.custom-price');
+                        if ($customPrice.length && $customPrice.text().includes('מחיר ללקוח')) {
+                            const priceText = $customPrice.text().replace(/[^\d.]/g, '');
+                            price = priceText ? parseFloat(priceText) : 0;
+                        } else {
+                            const $productPrice = $item.find('.product-price');
+                            if ($productPrice.length) {
+                                const priceText = $productPrice.text().replace(/[^\d.]/g, '');
+                                price = priceText ? parseFloat(priceText) : 0;
+                            } else {
+                                const priceText = $customPrice.text().replace(/[^\d.]/g, '');
+                                price = priceText ? parseFloat(priceText) : 0;
+                            }
+                        }
+                        existingItem.price = price;
+                    }
+                }
             });
+            
+            // עדכון הסיכום אחרי הוספת כל המוצרים
+            this.updateOrderSummary();
         },
 
         initProductSearch: function() {
@@ -311,13 +366,19 @@
                     this.hideLoader();
                     if (response.success && response.data) {
                         const product = response.data;
-                        // המרת המחיר למספר (אם הוא string)
-                        const price = parseFloat(product.price) || 0;
+                        // המרת המחירים למספרים (אם הם string)
+                        const basePrice = parseFloat(product.price) || 0;
+                        const customPrice = product.custom_price !== null && product.custom_price !== undefined 
+                            ? parseFloat(product.custom_price) : null;
+                        const finalPrice = product.final_price !== undefined 
+                            ? parseFloat(product.final_price) : (customPrice !== null ? customPrice : basePrice);
                         
                         const item = {
                             id: parseInt(product.id) || productId,
                             name: product.name || productName || 'מוצר ללא שם',
-                            price: price,
+                            price: finalPrice, // מחיר סופי לשימוש
+                            basePrice: basePrice, // מחיר בסיסי לתצוגה
+                            customPrice: customPrice, // מחיר מותאם לתצוגה
                             quantity: 1
                         };
                         
@@ -364,9 +425,32 @@
         createProductItem: function(product, isPurchased = false) {
             const productId = product.id || product;
             const productName = product.name || product;
-            const productPrice = parseFloat(product.price || 0);
-            const customPrice = product.custom_price ? parseFloat(product.custom_price) : null;
-            const displayPrice = customPrice || productPrice;
+            const productPrice = product.price !== null && product.price !== undefined ? parseFloat(product.price) : null;
+            const customPrice = product.custom_price !== null && product.custom_price !== undefined ? parseFloat(product.custom_price) : null;
+            
+            // קביעת מה להציג
+            let priceDisplay = '';
+            let customPriceDisplay = '';
+            
+            // אם יש מחיר מותאם שונה מהבסיסי
+            if (customPrice !== null && customPrice !== undefined && productPrice !== null && customPrice != productPrice) {
+                if (productPrice > 0) {
+                    priceDisplay = `<span class="product-price">₪${productPrice.toFixed(2)}</span>`;
+                }
+                customPriceDisplay = `<span class="custom-price">מחיר ללקוח: ₪${customPrice.toFixed(2)}</span>`;
+            } 
+            // אם יש רק מחיר בסיסי
+            else if (productPrice !== null && productPrice !== undefined) {
+                if (productPrice > 0) {
+                    priceDisplay = `<span class="product-price">₪${productPrice.toFixed(2)}</span>`;
+                } else {
+                    priceDisplay = '<span class="custom-price">₪0.00</span>';
+                }
+            }
+            // אם אין מחיר בכלל
+            else {
+                customPriceDisplay = '<span class="custom-price">מחיר ייקבע בהמשך</span>';
+            }
 
             return $(`
                 <div class="product-item" data-product-id="${productId}">
@@ -374,9 +458,8 @@
                     <div class="product-details">
                         <strong>${productName}</strong>
                         ${product.sku ? `<span class="product-sku">SKU: ${product.sku}</span>` : ''}
-                        ${productPrice > 0 ? `<span class="product-price">₪${productPrice.toFixed(2)}</span>` : ''}
-                        ${customPrice && customPrice != productPrice ? `<span class="custom-price">מחיר ללקוח: ₪${customPrice.toFixed(2)}</span>` : ''}
-                        ${!customPrice && productPrice == 0 ? '<span class="custom-price">מחיר ייקבע בהמשך</span>' : ''}
+                        ${priceDisplay}
+                        ${customPriceDisplay}
                     </div>
                     <input type="number" class="product-quantity" value="1" min="1" data-product-id="${productId}">
                 </div>
@@ -385,11 +468,12 @@
 
         displayProductInOrder: function(item) {
             const $container = $('#all-products-list');
+            // שימוש במחיר הבסיסי והמותאם (אם קיים) לתצוגה
             const $itemElement = this.createProductItem({
                 id: item.id,
                 name: item.name,
-                price: item.price,
-                custom_price: item.price
+                price: item.basePrice !== undefined ? item.basePrice : item.price,
+                custom_price: item.customPrice !== undefined ? item.customPrice : (item.basePrice !== undefined && item.basePrice != item.price ? item.price : null)
             });
             $container.append($itemElement);
             
@@ -410,9 +494,20 @@
                 let price = 0;
                 const $customPrice = $item.find('.custom-price');
                 if ($customPrice.length && $customPrice.text().includes('מחיר ללקוח')) {
-                    price = parseFloat($customPrice.text().replace(/[^\d.]/g, '')) || 0;
+                    // חילוץ מחיר מותאם
+                    const priceText = $customPrice.text().replace(/[^\d.]/g, '');
+                    price = priceText ? parseFloat(priceText) : 0;
                 } else {
-                    price = parseFloat($item.find('.product-price').text().replace(/[^\d.]/g, '')) || 0;
+                    // חילוץ מחיר רגיל
+                    const $productPrice = $item.find('.product-price');
+                    if ($productPrice.length) {
+                        const priceText = $productPrice.text().replace(/[^\d.]/g, '');
+                        price = priceText ? parseFloat(priceText) : 0;
+                    } else {
+                        // אם יש רק custom-price עם ₪0.00
+                        const priceText = $customPrice.text().replace(/[^\d.]/g, '');
+                        price = priceText ? parseFloat(priceText) : 0;
+                    }
                 }
 
                 selectedItems.push({
@@ -457,11 +552,19 @@
                 let price = 0;
                 const $customPrice = $item.find('.custom-price');
                 if ($customPrice.length && $customPrice.text().includes('מחיר ללקוח')) {
-                    price = parseFloat($customPrice.text().replace(/[^\d.]/g, '')) || 0;
+                    // חילוץ מחיר מותאם
+                    const priceText = $customPrice.text().replace(/[^\d.]/g, '');
+                    price = priceText ? parseFloat(priceText) : 0;
                 } else {
-                    const priceText = $item.find('.product-price').text();
-                    if (priceText) {
-                        price = parseFloat(priceText.replace(/[^\d.]/g, '')) || 0;
+                    // חילוץ מחיר רגיל
+                    const $productPrice = $item.find('.product-price');
+                    if ($productPrice.length) {
+                        const priceText = $productPrice.text().replace(/[^\d.]/g, '');
+                        price = priceText ? parseFloat(priceText) : 0;
+                    } else {
+                        // אם יש רק custom-price עם ₪0.00
+                        const priceText = $customPrice.text().replace(/[^\d.]/g, '');
+                        price = priceText ? parseFloat(priceText) : 0;
                     }
                 }
 

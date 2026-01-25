@@ -1,0 +1,14 @@
+body:not(.logged-in) .site-header-minicart {
+    display: none !important;
+}
+body:not(.logged-in) .oc-woo-ajax-price-filter{
+    display: none !important;
+
+}
+
+.no-price{
+    cursor:pointer;
+}
+.related.products .no-price,.search-form__results_container .no-price{
+display:none!important;
+}

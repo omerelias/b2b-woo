@@ -250,7 +250,10 @@ class KFIR_Custom_Pricing_Agent {
 
 					<div class="checkout-summary">
 						<div class="total">סה"כ: ₪<span id="checkout-total">0.00</span></div>
-						<button class="finalize-order kfir-btn-primary">✅ סיים הזמנה</button>
+						<div class="checkout-actions">
+							<button class="back-to-order kfir-btn-secondary" data-screen="new-order">⬅️ חזור להזמנה</button>
+							<button class="finalize-order kfir-btn-primary">✅ סיים הזמנה</button>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -491,8 +494,33 @@ class KFIR_Custom_Pricing_Agent {
 			if ( $prod->is_type( 'variation' ) ) {
 				$parent = wc_get_product( $prod->get_parent_id() );
 				$label = $parent ? $parent->get_name() : __( 'Variation', 'woocommerce' );
-				$attrs = wc_get_formatted_variation( $prod, true );
-				$text = sprintf( '%s — %s', $label, $attrs );
+				
+				// קבלת תכונות הוריאציה
+				$variation_attributes = $prod->get_variation_attributes();
+				$formatted_attrs = [];
+				
+				foreach ( $variation_attributes as $attr_name => $attr_value ) {
+					if ( empty( $attr_value ) ) continue;
+					
+					// אם הערך הוא slug, ננסה לקבל את השם מהטרמינולוגיה
+					$display_value = $attr_value;
+					
+					// בדיקה אם זה taxonomy (pa_)
+					if ( strpos( $attr_name, 'pa_' ) === 0 ) {
+						$term = get_term_by( 'slug', $attr_value, $attr_name );
+						if ( $term && ! is_wp_error( $term ) ) {
+							$display_value = $term->name;
+						}
+					} elseif ( strpos( $attr_name, 'attribute_' ) === 0 ) {
+						// זה custom attribute - נשתמש בערך ישירות
+						$display_value = $attr_value;
+					}
+					
+					$formatted_attrs[] = $display_value;
+				}
+				
+				$attrs_text = ! empty( $formatted_attrs ) ? implode( ', ', $formatted_attrs ) : '';
+				$text = $attrs_text ? sprintf( '%s — %s', $label, $attrs_text ) : $label;
 			} else {
 				$text = $prod->get_name();
 			}

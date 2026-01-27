@@ -133,6 +133,54 @@
             // עריכת מחיר וכמות במסך סיכום
             $(document).on('change', '.edit-price, .edit-quantity', this.updateCheckoutTotal.bind(this));
             
+            // שיטת משלוח - הצגת שדה דמי משלוח ועדכון מחיר אוטומטי
+            $(document).on('change', 'input[name="shipping_method"]', function() {
+                const $selectedMethod = $(this);
+                const $shippingCostInput = $('.shipping-cost-input');
+                const $shippingCostField = $('#shipping-cost');
+                
+                if ($selectedMethod.is(':checked')) {
+                    $shippingCostInput.slideDown(300);
+                    
+                    // קבלת מחיר מהנתונים שנשמרו ב-data attribute
+                    let shippingCost = parseFloat($selectedMethod.attr('data-shipping-cost')) || 0;
+                    
+                    // אם אין מחיר ב-data attribute, ננסה לקבל מ-AJAX
+                    if ((shippingCost === 0 || isNaN(shippingCost)) && $selectedMethod.val()) {
+                        $.ajax({
+                            url: kfirAgentData.ajaxurl,
+                            type: 'GET',
+                            data: {
+                                action: 'kfir_agent_get_shipping_cost',
+                                nonce: kfirAgentData.nonce,
+                                method_id: $selectedMethod.val()
+                            },
+                            success: (response) => {
+                                if (response.success) {
+                                    shippingCost = parseFloat(response.data.cost) || 0;
+                                    $shippingCostField.val(shippingCost.toFixed(2));
+                                    KfirAgent.updateCheckoutTotal();
+                                }
+                            }
+                        });
+                    } else {
+                        // עדכון המחיר ישירות מהנתונים
+                        $shippingCostField.val(shippingCost.toFixed(2));
+                        KfirAgent.updateCheckoutTotal();
+                    }
+                } else {
+                    // אם אין שיטת משלוח נבחרת, נסתיר את השדה
+                    if ($('input[name="shipping_method"]:checked').length === 0) {
+                        $shippingCostInput.slideUp(300);
+                        $shippingCostField.val(0);
+                        KfirAgent.updateCheckoutTotal();
+                    }
+                }
+            });
+            
+            // עדכון סה"כ כשמשנים דמי משלוח
+            $(document).on('change', '#shipping-cost', this.updateCheckoutTotal.bind(this));
+            
             // מחיקת פריט
             $(document).on('click', '.remove-item', this.removeItem.bind(this));
             
@@ -763,6 +811,10 @@
                 total += itemTotal;
             });
 
+            // הוספת דמי משלוח אם נבחרה שיטת משלוח
+            const shippingCost = parseFloat($('#shipping-cost').val()) || 0;
+            total += shippingCost;
+
             $('#checkout-total').text(total.toFixed(2));
         },
 
@@ -812,6 +864,10 @@
                 return;
             }
 
+            // קבלת שיטת משלוח ודמי משלוח
+            const shippingMethod = $('input[name="shipping_method"]:checked').val() || '';
+            const shippingCost = parseFloat($('#shipping-cost').val()) || 0;
+
             // הצגת loader
             this.showLoader('.checkout-summary');
             $('.finalize-order').prop('disabled', true).text('יוצר הזמנה...');
@@ -825,7 +881,9 @@
                     nonce: kfirAgentData.nonce,
                     customer_id: this.selectedCustomer.id,
                     items: updatedItems,
-                    payment_method: paymentMethod
+                    payment_method: paymentMethod,
+                    shipping_method: shippingMethod,
+                    shipping_cost: shippingCost
                 },
                 success: (response) => {
                     this.hideLoader();

@@ -24,6 +24,7 @@ class KFIR_Custom_Pricing_Agent {
 		add_action( 'wp_ajax_kfir_agent_get_product_details', [ $this, 'ajax_get_product_details' ] );
 		add_action( 'wp_ajax_kfir_agent_calculate_total', [ $this, 'ajax_calculate_total' ] );
 		add_action( 'wp_ajax_kfir_agent_create_order', [ $this, 'ajax_create_order' ] );
+		add_action( 'wp_ajax_kfir_agent_get_shipping_cost', [ $this, 'ajax_get_shipping_cost' ] );
 	}
 
 	/**
@@ -274,6 +275,120 @@ class KFIR_Custom_Pricing_Agent {
 								echo '</label>';
 							}
 							?>
+						</div>
+					</div>
+
+					<div class="shipping-methods">
+						<h3>שיטת משלוח</h3>
+						<div id="shipping-methods-list">
+							<?php
+							// קבלת כל שיטות המשלוח הזמינות מאזורי המשלוח
+							$shipping_zones = WC_Shipping_Zones::get_zones();
+							$all_methods = [];
+							
+							// איסוף שיטות משלוח מכל האזורים
+							foreach ( $shipping_zones as $zone ) {
+								foreach ( $zone['shipping_methods'] as $method ) {
+									if ( $method->enabled === 'yes' ) {
+										$method_id = $method->id;
+										$method_title = $method->get_title() ?: $method->get_method_title();
+										
+									// קבלת מחיר המשלוח
+									$method_cost = 0;
+									
+									// ניסיון לקבל מחיר לפי סוג השיטה
+									if ( method_exists( $method, 'get_option' ) ) {
+										$method_cost = $method->get_option( 'cost', 0 );
+									}
+									
+									// אם אין מחיר, ננסה לקבל ישירות
+									if ( empty( $method_cost ) && isset( $method->cost ) ) {
+										$method_cost = $method->cost;
+									}
+									
+									// אם עדיין אין מחיר, ננסה get_cost
+									if ( empty( $method_cost ) && method_exists( $method, 'get_cost' ) ) {
+										$method_cost = $method->get_cost();
+									}
+									
+									// אם זה free_shipping, המחיר הוא 0
+									if ( $method_id === 'free_shipping' ) {
+										$method_cost = 0;
+									}
+									
+									// המרה למספר
+									$method_cost = floatval( $method_cost );
+										
+										$all_methods[ $method_id ] = [
+											'title' => $method_title,
+											'cost' => floatval( $method_cost )
+										];
+									}
+								}
+							}
+							
+							// הוספת שיטות משלוח מאזור ברירת המחדל (Rest of the World)
+							$default_zone = new WC_Shipping_Zone( 0 );
+							foreach ( $default_zone->get_shipping_methods( true ) as $method ) {
+								if ( $method->enabled === 'yes' ) {
+									$method_id = $method->id;
+									$method_title = $method->get_title() ?: $method->get_method_title();
+									
+									// קבלת מחיר המשלוח
+									$method_cost = 0;
+									
+									// ניסיון לקבל מחיר לפי סוג השיטה
+									if ( method_exists( $method, 'get_option' ) ) {
+										$method_cost = $method->get_option( 'cost', 0 );
+									}
+									
+									// אם אין מחיר, ננסה לקבל ישירות
+									if ( empty( $method_cost ) && isset( $method->cost ) ) {
+										$method_cost = $method->cost;
+									}
+									
+									// אם עדיין אין מחיר, ננסה get_cost
+									if ( empty( $method_cost ) && method_exists( $method, 'get_cost' ) ) {
+										$method_cost = $method->get_cost();
+									}
+									
+									// אם זה free_shipping, המחיר הוא 0
+									if ( $method_id === 'free_shipping' ) {
+										$method_cost = 0;
+									}
+									
+									// המרה למספר
+									$method_cost = floatval( $method_cost );
+									
+									$all_methods[ $method_id ] = [
+										'title' => $method_title,
+										'cost' => floatval( $method_cost )
+									];
+								}
+							}
+							
+							// אם אין שיטות משלוח, נוסיף אפשרות ידנית
+							if ( empty( $all_methods ) ) {
+								$all_methods['manual'] = [
+									'title' => 'משלוח ידני',
+									'cost' => 0
+								];
+							}
+							
+							foreach ( $all_methods as $method_id => $method_data ) {
+								$method_title = is_array( $method_data ) ? $method_data['title'] : $method_data;
+								$method_cost = is_array( $method_data ) ? ( $method_data['cost'] ?? 0 ) : 0;
+								
+								echo '<label class="shipping-method-option">';
+								echo '<input type="radio" name="shipping_method" value="' . esc_attr( $method_id ) . '" data-method-id="' . esc_attr( $method_id ) . '" data-shipping-cost="' . esc_attr( $method_cost ) . '">';
+								echo esc_html( $method_title );
+								echo '</label>';
+							}
+							?>
+						</div>
+						<div class="shipping-cost-input" style="margin-top: 15px; display: none;">
+							<label>דמי משלוח (₪)</label>
+							<input type="number" id="shipping-cost" name="shipping_cost" value="0" step="0.01" min="0" style="width: 100%; padding: 8px; margin-top: 5px;">
 						</div>
 					</div>
 
@@ -775,6 +890,8 @@ class KFIR_Custom_Pricing_Agent {
 		$customer_id = absint( $_POST['customer_id'] ?? 0 );
 		$items = isset( $_POST['items'] ) ? (array) $_POST['items'] : [];
 		$payment_method = sanitize_text_field( $_POST['payment_method'] ?? '' );
+		$shipping_method = sanitize_text_field( $_POST['shipping_method'] ?? '' );
+		$shipping_cost = wc_format_decimal( $_POST['shipping_cost'] ?? 0 );
 
 		if ( ! $customer_id || empty( $items ) ) {
 			wp_send_json_error( [ 'message' => 'חסרים פרטים' ] );
@@ -814,6 +931,39 @@ class KFIR_Custom_Pricing_Agent {
 			$order->set_payment_method( $payment_method );
 		}
 
+		// הוספת שיטת משלוח ודמי משלוח
+		if ( $shipping_method ) {
+			// חיפוש שם השיטה מהאזורים
+			$shipping_title = $shipping_method; // ברירת מחדל
+			$shipping_zones = WC_Shipping_Zones::get_zones();
+			foreach ( $shipping_zones as $zone ) {
+				foreach ( $zone['shipping_methods'] as $method ) {
+					if ( $method->id === $shipping_method && $method->enabled === 'yes' ) {
+						$shipping_title = $method->get_title() ?: $method->get_method_title();
+						break 2;
+					}
+				}
+			}
+			
+			// אם לא נמצא, נבדוק באזור ברירת המחדל
+			if ( $shipping_title === $shipping_method ) {
+				$default_zone = new WC_Shipping_Zone( 0 );
+				foreach ( $default_zone->get_shipping_methods( true ) as $method ) {
+					if ( $method->id === $shipping_method && $method->enabled === 'yes' ) {
+						$shipping_title = $method->get_title() ?: $method->get_method_title();
+						break;
+					}
+				}
+			}
+			
+			// יצירת shipping item
+			$shipping_item = new WC_Order_Item_Shipping();
+			$shipping_item->set_method_title( $shipping_title );
+			$shipping_item->set_method_id( $shipping_method );
+			$shipping_item->set_total( $shipping_cost );
+			$order->add_item( $shipping_item );
+		}
+
 		// חישוב סיכומים
 		$order->calculate_totals();
 		$order->save();
@@ -823,6 +973,86 @@ class KFIR_Custom_Pricing_Agent {
 			'order_number' => $order->get_order_number(),
 			'total' => $order->get_total(),
 		] );
+	}
+
+	/**
+	 * AJAX: קבלת מחיר משלוח
+	 */
+	public function ajax_get_shipping_cost() {
+		check_ajax_referer( 'kfir_agent_nonce', 'nonce' );
+		
+		if ( ! $this->is_agent_page() ) {
+			wp_send_json_error( [ 'message' => 'אין לך הרשאה' ] );
+		}
+
+		$method_id = sanitize_text_field( $_GET['method_id'] ?? '' );
+		if ( ! $method_id ) {
+			wp_send_json_error( [ 'message' => 'לא נבחרה שיטת משלוח' ] );
+		}
+
+		$cost = 0;
+		
+		// חיפוש שיטת המשלוח באזורים
+		$shipping_zones = WC_Shipping_Zones::get_zones();
+		foreach ( $shipping_zones as $zone ) {
+			foreach ( $zone['shipping_methods'] as $method ) {
+				if ( $method->id === $method_id && $method->enabled === 'yes' ) {
+					// ניסיון לקבל מחיר לפי סוג השיטה
+					if ( method_exists( $method, 'get_option' ) ) {
+						$cost = $method->get_option( 'cost', 0 );
+					}
+					
+					// אם אין מחיר, ננסה לקבל ישירות
+					if ( empty( $cost ) && isset( $method->cost ) ) {
+						$cost = $method->cost;
+					}
+					
+					// אם עדיין אין מחיר, ננסה get_cost
+					if ( empty( $cost ) && method_exists( $method, 'get_cost' ) ) {
+						$cost = $method->get_cost();
+					}
+					
+					// אם זה free_shipping, המחיר הוא 0
+					if ( $method_id === 'free_shipping' ) {
+						$cost = 0;
+					}
+					
+					break 2;
+				}
+			}
+		}
+		
+		// אם לא נמצא, נבדוק באזור ברירת המחדל
+		if ( $cost == 0 ) {
+			$default_zone = new WC_Shipping_Zone( 0 );
+			foreach ( $default_zone->get_shipping_methods( true ) as $method ) {
+				if ( $method->id === $method_id && $method->enabled === 'yes' ) {
+					// ניסיון לקבל מחיר לפי סוג השיטה
+					if ( method_exists( $method, 'get_option' ) ) {
+						$cost = $method->get_option( 'cost', 0 );
+					}
+					
+					// אם אין מחיר, ננסה לקבל ישירות
+					if ( empty( $cost ) && isset( $method->cost ) ) {
+						$cost = $method->cost;
+					}
+					
+					// אם עדיין אין מחיר, ננסה get_cost
+					if ( empty( $cost ) && method_exists( $method, 'get_cost' ) ) {
+						$cost = $method->get_cost();
+					}
+					
+					// אם זה free_shipping, המחיר הוא 0
+					if ( $method_id === 'free_shipping' ) {
+						$cost = 0;
+					}
+					
+					break;
+				}
+			}
+		}
+
+		wp_send_json_success( [ 'cost' => floatval( $cost ) ] );
 	}
 }
 

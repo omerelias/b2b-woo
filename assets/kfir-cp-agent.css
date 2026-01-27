@@ -789,3 +789,65 @@
 		animation: none !important;
 	}
 }
+
+/* Hide whatsapp-text on agent pages */
+body.kfir-agent-page .whatsapp-text,
+.kfir-agent-page .whatsapp-text,
+.kfir-agent-wrap .whatsapp-text {
+	display: none !important;
+}
+
+/* Hide WhatsApp SVG and its parent elements on agent pages */
+body.kfir-agent-page svg[viewBox="0 0 32 32"],
+body.kfir-agent-page svg[viewBox="0 0 32 32"] path,
+body.kfir-agent-page *:has(> svg[viewBox="0 0 32 32"]),
+body.kfir-agent-page a:has(svg[viewBox="0 0 32 32"]),
+body.kfir-agent-page button:has(svg[viewBox="0 0 32 32"]),
+body.kfir-agent-page div:has(svg[viewBox="0 0 32 32"]),
+body.kfir-agent-page span:has(svg[viewBox="0 0 32 32"]) {
+	display: none !important;
+	visibility: hidden !important;
+}
+
+/* Hide header and footer on agent pages */
+body.kfir-agent-page header,
+body.kfir-agent-page .site-header,
+body.kfir-agent-page #masthead,
+body.kfir-agent-page .site-header--inner,
+body.kfir-agent-page .top-header-slider--container,
+body.kfir-agent-page footer,
+body.kfir-agent-page .site-footer,
+body.kfir-agent-page #footer-top,
+body.kfir-agent-page .footer-top-content--container,
+body.kfir-agent-page .footer-main--container,
+body.kfir-agent-page .footer-bottom--container,
+body.kfir-agent-page #colophon,
+body.kfir-agent-page #wpadminbar,
+body.kfir-agent-page .ab-item,
+body.kfir-agent-page .header-bumper,
+body.kfir-agent-page .userway_buttons_wrapper {
+	display: none !important;
+	visibility: hidden !important;
+}
+
+/* Full page layout for agent pages - remove margins/padding */
+body.kfir-agent-page {
+	margin: 0 !important;
+	padding: 0 !important;
+}
+
+body.kfir-agent-page #main,
+body.kfir-agent-page .site-main,
+body.kfir-agent-page .content-area,
+body.kfir-agent-page .site-content,
+body.kfir-agent-page main {
+	margin: 0 !important;
+	padding: 0 !important;
+}
+
+/* Override WordPress admin bar margin-top on agent pages */
+@media screen and (max-width: 782px) {
+	 html {
+		margin-top: 0 !important;
+	}
+}

@@ -14,6 +14,7 @@ class KFIR_Custom_Pricing_Agent {
 		add_action( 'init', [ $this, 'register_agent_role' ] );
 		add_shortcode( 'kfir_agent_interface', [ $this, 'render_interface' ] );
 		add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_assets' ] );
+		add_filter( 'body_class', [ $this, 'add_agent_body_class' ] );
 		
 		// AJAX endpoints
 		add_action( 'wp_ajax_kfir_agent_create_customer', [ $this, 'ajax_create_customer' ] );
@@ -53,10 +54,34 @@ class KFIR_Custom_Pricing_Agent {
 	}
 
 	/**
+	 * הוספת class ל-body כאשר יש shortcode של סוכנים
+	 */
+	public function add_agent_body_class( $classes ) {
+		global $post;
+		
+		if ( ! $this->is_agent_page() ) {
+			return $classes;
+		}
+		
+		// בדיקה אם יש shortcode בעמוד/פוסט הנוכחי
+		if ( $post && has_shortcode( $post->post_content, 'kfir_agent_interface' ) ) {
+			$classes[] = 'kfir-agent-page';
+		}
+		
+		return $classes;
+	}
+
+	/**
 	 * טעינת קבצי CSS ו-JS
 	 */
 	public function enqueue_assets() {
 		if ( ! $this->is_agent_page() ) {
+			return;
+		}
+
+		// בדיקה אם יש shortcode בעמוד הנוכחי
+		global $post;
+		if ( ! $post || ! has_shortcode( $post->post_content, 'kfir_agent_interface' ) ) {
 			return;
 		}
 
@@ -103,7 +128,7 @@ class KFIR_Custom_Pricing_Agent {
 
 		ob_start();
 		?>
-		<div class="kfir-agent-wrap">
+		<div class="kfir-agent-wrap kfir-agent-page">
 			<!-- מסך 1: Dashboard -->
 			<div class="kfir-screen" id="screen-dashboard">
 				<div class="kfir-agent-dashboard">

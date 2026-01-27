@@ -108,6 +108,7 @@ class KFIR_Custom_Pricing_Agent {
 		wp_localize_script( 'kfir-agent-js', 'kfirAgentData', [
 			'ajaxurl' => admin_url( 'admin-ajax.php' ),
 			'nonce' => wp_create_nonce( 'kfir_agent_nonce' ),
+			'placeholder_img' => wc_placeholder_img_src( 'thumbnail' ),
 			'strings' => [
 				'selectCustomer' => 'בחר לקוח',
 				'searchProducts' => 'חפש מוצרים...',
@@ -219,8 +220,11 @@ class KFIR_Custom_Pricing_Agent {
 					</div>
 
 					<div id="purchased-products-section" class="kfir-products-section" style="display: none;">
-						<h3>מוצרים שנרכשו בעבר</h3>
-						<div id="purchased-products-list" class="kfir-products-list"></div>
+						<h3 class="accordion-header" id="purchased-products-header">
+							<span>מוצרים שנרכשו בעבר</span>
+							<span class="accordion-icon">▼</span>
+						</h3>
+						<div id="purchased-products-list" class="kfir-products-list accordion-content"></div>
 					</div>
 
 					<div id="all-products-section" class="kfir-products-section">
@@ -424,12 +428,33 @@ class KFIR_Custom_Pricing_Agent {
 
 		$users = get_users( $args );
 
-		// חיפוש גם לפי meta (טלפון)
+		// חיפוש גם לפי meta (טלפון, אימייל, שם עסק, ח.פ)
 		$meta_users = get_users( [
 			'role' => 'customer',
 			'meta_query' => [
+				'relation' => 'OR',
 				[
 					'key' => 'billing_phone',
+					'value' => $search_term,
+					'compare' => 'LIKE',
+				],
+				[
+					'key' => '_phone',
+					'value' => $search_term,
+					'compare' => 'LIKE',
+				],
+				[
+					'key' => 'billing_company',
+					'value' => $search_term,
+					'compare' => 'LIKE',
+				],
+				[
+					'key' => '_business_name',
+					'value' => $search_term,
+					'compare' => 'LIKE',
+				],
+				[
+					'key' => '_vat_id',
 					'value' => $search_term,
 					'compare' => 'LIKE',
 				],
@@ -451,17 +476,59 @@ class KFIR_Custom_Pricing_Agent {
 
 		$results = [];
 		foreach ( $unique_users as $user ) {
-			$business_name = get_user_meta( $user->ID, 'billing_company', true ) ?: $user->display_name;
-			$phone = get_user_meta( $user->ID, 'billing_phone', true ) ?: '';
+			// קבלת שם עסק - נבדוק גם billing_company וגם _business_name
+			$business_name = get_user_meta( $user->ID, 'billing_company', true );
+			if ( ! $business_name ) {
+				$business_name = get_user_meta( $user->ID, '_business_name', true );
+			}
+			$business_name = $business_name ?: '';
+			
+			// קבלת טלפון - נבדוק גם billing_phone וגם _phone
+			$phone = get_user_meta( $user->ID, 'billing_phone', true );
+			if ( ! $phone ) {
+				$phone = get_user_meta( $user->ID, '_phone', true );
+			}
+			$phone = $phone ?: '';
+			
 			$first_name = get_user_meta( $user->ID, 'billing_first_name', true ) ?: $user->first_name;
 			$last_name = get_user_meta( $user->ID, 'billing_last_name', true ) ?: $user->last_name;
 			
+			// קבלת אימייל - נבדוק גם _email
+			$email = $user->user_email;
+			if ( ! $email ) {
+				$email = get_user_meta( $user->ID, '_email', true ) ?: '';
+			}
+			
+			// קבלת ח.פ
+			$vat_id = get_user_meta( $user->ID, '_vat_id', true ) ?: '';
+			
+			// בניית טקסט תצוגה עם כל הפרטים
+			$display_parts = [];
+			if ( $business_name ) {
+				$display_parts[] = $business_name;
+			}
+			if ( $first_name || $last_name ) {
+				$display_parts[] = trim( $first_name . ' ' . $last_name );
+			}
+			if ( $phone ) {
+				$display_parts[] = $phone;
+			}
+			if ( $vat_id ) {
+				$display_parts[] = 'ח.פ: ' . $vat_id;
+			}
+			if ( $email ) {
+				$display_parts[] = $email;
+			}
+			$display_text = implode( ' | ', $display_parts );
+			
 			$results[] = [
 				'id' => $user->ID,
-				'text' => $business_name . ' - ' . $first_name . ' ' . $last_name . ( $phone ? ' | ' . $phone : '' ),
+				'text' => $display_text,
 				'business_name' => $business_name,
-				'name' => $first_name . ' ' . $last_name,
+				'name' => trim( $first_name . ' ' . $last_name ),
 				'phone' => $phone,
+				'email' => $email,
+				'vat_id' => $vat_id,
 			];
 		}
 
@@ -597,12 +664,23 @@ class KFIR_Custom_Pricing_Agent {
 			$pricing = new KFIR_Custom_Pricing();
 			$custom_price = $pricing->get_customer_price( $customer_id, $product_id );
 
+			// קבלת תמונת המוצר
+			$image_id = $product->get_image_id();
+			$image_url = '';
+			if ( $image_id ) {
+				$image_url = wp_get_attachment_image_url( $image_id, 'thumbnail' );
+			} else {
+				// אם אין תמונה, נשתמש בתמונת placeholder
+				$image_url = wc_placeholder_img_src( 'thumbnail' );
+			}
+
 			$products_data[] = [
 				'id' => $product_id,
 				'name' => $product->get_name(),
 				'sku' => $product->get_sku(),
 				'price' => $custom_price ?: $product->get_price(),
 				'custom_price' => $custom_price,
+				'image_url' => $image_url,
 			];
 		}
 
@@ -641,6 +719,16 @@ class KFIR_Custom_Pricing_Agent {
 		// המחיר הסופי - מותאם אם קיים, אחרת בסיסי
 		$final_price = $custom_price !== null ? $custom_price : $base_price;
 
+		// קבלת תמונת המוצר
+		$image_id = $product->get_image_id();
+		$image_url = '';
+		if ( $image_id ) {
+			$image_url = wp_get_attachment_image_url( $image_id, 'thumbnail' );
+		} else {
+			// אם אין תמונה, נשתמש בתמונת placeholder
+			$image_url = wc_placeholder_img_src( 'thumbnail' );
+		}
+
 		wp_send_json_success( [
 			'id' => $product_id,
 			'name' => $product->get_name(),
@@ -648,6 +736,7 @@ class KFIR_Custom_Pricing_Agent {
 			'price' => $base_price, // מחיר בסיסי
 			'custom_price' => $custom_price, // מחיר מותאם (null אם אין)
 			'final_price' => $final_price, // מחיר סופי לשימוש
+			'image_url' => $image_url,
 		] );
 	}
 

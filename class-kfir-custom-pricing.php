@@ -16,7 +16,7 @@ class KFIR_Custom_Pricing {
 		add_filter( 'woocommerce_variation_is_purchasable', [ $this, 'allow_zero_price_variations' ], 20, 2 );
 		add_action( 'woocommerce_before_calculate_totals', [ $this, 'apply_custom_price_to_cart' ], 20 );
 		add_filter( 'woocommerce_cart_item_price', [ $this, 'custom_cart_item_price_display' ], 20, 3 );
-        add_filter( 'woocommerce_cart_item_subtotal', [ $this, 'custom_cart_item_price_display' ], 20, 3 ); 
+        add_filter( 'woocommerce_cart_item_subtotal', [ $this, 'custom_cart_item_price_display' ], 20, 3 );
 
         add_filter( 'woocommerce_cart_totals_order_total_html', [ $this, 'maybe_hide_order_total' ] );
 		add_filter( 'woocommerce_order_amount_total', [ $this, 'maybe_force_order_total_zero' ], 10, 2 );

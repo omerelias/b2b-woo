@@ -226,8 +226,15 @@
                     displayParts.push(`✉️ ${customer.email}`);
                 }
                 
+                // קביעת שם תצוגה - שם עסק או שם לקוח
+                const displayName = customer.business_name || customer.name || 'לקוח #' + customer.id;
+                
                 const $result = $(`
-                    <div class="customer-result" data-customer-id="${customer.id}">
+                    <div class="customer-result" 
+                         data-customer-id="${customer.id}" 
+                         data-customer-name="${displayName.replace(/"/g, '&quot;')}" 
+                         data-customer-business="${(customer.business_name || '').replace(/"/g, '&quot;')}" 
+                         data-customer-fullname="${(customer.name || '').replace(/"/g, '&quot;')}">
                         <div class="customer-result-main">
                             ${displayParts.join(' | ')}
                         </div>
@@ -238,8 +245,30 @@
         },
 
         selectCustomer: function(e) {
-            const customerId = $(e.currentTarget).data('customer-id');
-            const customerName = $(e.currentTarget).find('strong').text();
+            const $result = $(e.currentTarget);
+            const customerId = $result.data('customer-id');
+            
+            // קבלת שם מהנתונים שנשמרו ב-data attribute
+            let customerName = $result.data('customer-name');
+            if (!customerName || customerName.trim() === '') {
+                // אם אין שם ב-data attribute, ננסה לקבל מהתצוגה
+                customerName = $result.data('customer-business') || $result.data('customer-fullname');
+                if (!customerName || customerName.trim() === '') {
+                    // אם עדיין אין שם, ננסה מהטקסט
+                    customerName = $result.find('strong').text();
+                    if (!customerName || customerName.trim() === '') {
+                        // אם עדיין אין שם, ננסה מהטקסט הכללי
+                        const customerText = $result.find('.customer-result-main').text();
+                        const parts = customerText.split('|');
+                        if (parts.length > 0) {
+                            customerName = parts[0].trim();
+                        }
+                        if (!customerName || customerName.trim() === '') {
+                            customerName = 'לקוח #' + customerId;
+                        }
+                    }
+                }
+            }
             
             this.selectedCustomer = {
                 id: customerId,

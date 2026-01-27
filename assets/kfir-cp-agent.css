@@ -256,6 +256,17 @@
 }
 
 /* Product Search */
+#screen-new-order .kfir-form-group {
+	margin-bottom: 0;
+	padding: 15px 20px;
+	background: #ffffff;
+	border-bottom: 1px solid #e5e5e5;
+}
+
+#screen-new-order .kfir-form-group label {
+	display: none; /* נסתיר את התווית רק בחיפוש מוצרים */
+}
+
 .kfir-select {
 	width: 100%;
 }

@@ -176,6 +176,10 @@ class KFIR_Custom_Pricing_Agent {
 							<input type="text" name="city">
 						</div>
 						<div class="kfir-form-group">
+							<label>כתובת עסק</label>
+							<input type="text" name="business_address">
+						</div>
+						<div class="kfir-form-group">
 							<label>ח.פ / ע.מ</label>
 							<input type="text" name="vat_id">
 						</div>
@@ -433,6 +437,7 @@ class KFIR_Custom_Pricing_Agent {
 		$email = sanitize_email( $_POST['email'] ?? '' );
 		$business_name = sanitize_text_field( $_POST['business_name'] ?? '' );
 		$city = sanitize_text_field( $_POST['city'] ?? '' );
+		$business_address = sanitize_text_field( $_POST['business_address'] ?? '' );
 		$vat_id = sanitize_text_field( $_POST['vat_id'] ?? '' );
 
 		// Validation
@@ -489,6 +494,7 @@ class KFIR_Custom_Pricing_Agent {
 		update_user_meta( $user_id, 'billing_phone', $phone );
 		update_user_meta( $user_id, 'billing_company', $business_name );
 		update_user_meta( $user_id, 'billing_city', $city );
+		update_user_meta( $user_id, 'billing_address_1', $business_address );
 		update_user_meta( $user_id, 'billing_country', 'IL' );
 
 		// Custom meta fields
@@ -534,6 +540,29 @@ class KFIR_Custom_Pricing_Agent {
 			wp_send_json( [ 'results' => [] ] );
 		}
 
+		// קבלת ID האתר הנוכחי במולטיסייט
+		$current_blog_id = is_multisite() ? get_current_blog_id() : null;
+
+		// בניית meta_query בסיסי
+		$base_meta_query = [];
+		
+		// אם זה מולטיסייט, נסנן רק משתמשים שנוצרו באתר הנוכחי
+		if ( is_multisite() && $current_blog_id ) {
+			$base_meta_query[] = [
+				'relation' => 'OR',
+				[
+					'key' => '_created_site_id',
+					'value' => $current_blog_id,
+					'compare' => '=',
+				],
+				// גם משתמשים ללא _created_site_id (לקוחות ישנים) - נכלול אותם רק אם הם באתר הנוכחי
+				[
+					'key' => '_created_site_id',
+					'compare' => 'NOT EXISTS',
+				],
+			];
+		}
+
 		$args = [
 			'role' => 'customer',
 			'search' => '*' . $search_term . '*',
@@ -541,12 +570,17 @@ class KFIR_Custom_Pricing_Agent {
 			'number' => 20,
 		];
 
+		// הוספת meta_query אם יש
+		if ( ! empty( $base_meta_query ) ) {
+			$args['meta_query'] = $base_meta_query;
+		}
+
 		$users = get_users( $args );
 
 		// חיפוש גם לפי meta (טלפון, אימייל, שם עסק, ח.פ)
-		$meta_users = get_users( [
-			'role' => 'customer',
-			'meta_query' => [
+		$meta_query = [
+			'relation' => 'AND',
+			[
 				'relation' => 'OR',
 				[
 					'key' => 'billing_phone',
@@ -574,6 +608,27 @@ class KFIR_Custom_Pricing_Agent {
 					'compare' => 'LIKE',
 				],
 			],
+		];
+
+		// הוספת סינון לפי אתר אם זה מולטיסייט
+		if ( is_multisite() && $current_blog_id ) {
+			$meta_query[] = [
+				'relation' => 'OR',
+				[
+					'key' => '_created_site_id',
+					'value' => $current_blog_id,
+					'compare' => '=',
+				],
+				[
+					'key' => '_created_site_id',
+					'compare' => 'NOT EXISTS',
+				],
+			];
+		}
+
+		$meta_users = get_users( [
+			'role' => 'customer',
+			'meta_query' => $meta_query,
 			'number' => 20,
 		] );
 
@@ -590,7 +645,18 @@ class KFIR_Custom_Pricing_Agent {
 		}
 
 		$results = [];
+		$current_blog_id = is_multisite() ? get_current_blog_id() : null;
+		
 		foreach ( $unique_users as $user ) {
+			// סינון נוסף במולטיסייט - וודא שהמשתמש שייך לאתר הנוכחי
+			if ( is_multisite() && $current_blog_id ) {
+				$created_site_id = get_user_meta( $user->ID, '_created_site_id', true );
+				// אם יש _created_site_id והוא שונה מהאתר הנוכחי, דלג על המשתמש
+				if ( $created_site_id !== '' && intval( $created_site_id ) !== $current_blog_id ) {
+					continue;
+				}
+			}
+			
 			// קבלת שם עסק - נבדוק גם billing_company וגם _business_name
 			$business_name = get_user_meta( $user->ID, 'billing_company', true );
 			if ( ! $business_name ) {
@@ -905,6 +971,54 @@ class KFIR_Custom_Pricing_Agent {
 
 		if ( is_wp_error( $order ) ) {
 			wp_send_json_error( [ 'message' => 'שגיאה ביצירת הזמנה: ' . $order->get_error_message() ] );
+		}
+
+		// שיוך פרטי חיוב ומשלוח מהלקוח להזמנה
+		$customer = get_userdata( $customer_id );
+		if ( $customer ) {
+			// פרטי חיוב (Billing)
+			$billing_first_name = get_user_meta( $customer_id, 'billing_first_name', true ) ?: $customer->first_name;
+			$billing_last_name = get_user_meta( $customer_id, 'billing_last_name', true ) ?: $customer->last_name;
+			$billing_email = get_user_meta( $customer_id, 'billing_email', true ) ?: $customer->user_email;
+			$billing_phone = get_user_meta( $customer_id, 'billing_phone', true );
+			$billing_company = get_user_meta( $customer_id, 'billing_company', true );
+			$billing_address_1 = get_user_meta( $customer_id, 'billing_address_1', true );
+			$billing_city = get_user_meta( $customer_id, 'billing_city', true );
+			$billing_postcode = get_user_meta( $customer_id, 'billing_postcode', true );
+			$billing_country = get_user_meta( $customer_id, 'billing_country', true ) ?: 'IL';
+			$billing_state = get_user_meta( $customer_id, 'billing_state', true );
+
+			// הגדרת פרטי חיוב להזמנה
+			if ( $billing_first_name ) $order->set_billing_first_name( $billing_first_name );
+			if ( $billing_last_name ) $order->set_billing_last_name( $billing_last_name );
+			if ( $billing_email ) $order->set_billing_email( $billing_email );
+			if ( $billing_phone ) $order->set_billing_phone( $billing_phone );
+			if ( $billing_company ) $order->set_billing_company( $billing_company );
+			if ( $billing_address_1 ) $order->set_billing_address_1( $billing_address_1 );
+			if ( $billing_city ) $order->set_billing_city( $billing_city );
+			if ( $billing_postcode ) $order->set_billing_postcode( $billing_postcode );
+			if ( $billing_country ) $order->set_billing_country( $billing_country );
+			if ( $billing_state ) $order->set_billing_state( $billing_state );
+
+			// פרטי משלוח (Shipping) - נשתמש באותם פרטים כמו חיוב אם אין פרטי משלוח נפרדים
+			$shipping_first_name = get_user_meta( $customer_id, 'shipping_first_name', true ) ?: $billing_first_name;
+			$shipping_last_name = get_user_meta( $customer_id, 'shipping_last_name', true ) ?: $billing_last_name;
+			$shipping_company = get_user_meta( $customer_id, 'shipping_company', true ) ?: $billing_company;
+			$shipping_address_1 = get_user_meta( $customer_id, 'shipping_address_1', true ) ?: $billing_address_1;
+			$shipping_city = get_user_meta( $customer_id, 'shipping_city', true ) ?: $billing_city;
+			$shipping_postcode = get_user_meta( $customer_id, 'shipping_postcode', true ) ?: $billing_postcode;
+			$shipping_country = get_user_meta( $customer_id, 'shipping_country', true ) ?: $billing_country;
+			$shipping_state = get_user_meta( $customer_id, 'shipping_state', true ) ?: $billing_state;
+
+			// הגדרת פרטי משלוח להזמנה
+			if ( $shipping_first_name ) $order->set_shipping_first_name( $shipping_first_name );
+			if ( $shipping_last_name ) $order->set_shipping_last_name( $shipping_last_name );
+			if ( $shipping_company ) $order->set_shipping_company( $shipping_company );
+			if ( $shipping_address_1 ) $order->set_shipping_address_1( $shipping_address_1 );
+			if ( $shipping_city ) $order->set_shipping_city( $shipping_city );
+			if ( $shipping_postcode ) $order->set_shipping_postcode( $shipping_postcode );
+			if ( $shipping_country ) $order->set_shipping_country( $shipping_country );
+			if ( $shipping_state ) $order->set_shipping_state( $shipping_state );
 		}
 
 		// הוספת מוצרים

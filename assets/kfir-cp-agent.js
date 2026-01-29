@@ -8,11 +8,38 @@
 
         init: function() {
             this.bindEvents();
+            
+            // טיפול בכפתור "הקודם" של הדפדפן
+            window.addEventListener('popstate', (e) => {
+                if (e.state && e.state.screen) {
+                    this.showScreenWithoutHistory(e.state.screen);
+                } else {
+                    // אם אין state, נבדוק את ה-URL
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const screenParam = urlParams.get('screen');
+                    if (screenParam) {
+                        this.showScreenWithoutHistory(screenParam);
+                    } else {
+                        // אם אין state ואין screen ב-URL, נחזור לדאשבורד
+                        this.showScreenWithoutHistory('dashboard');
+                    }
+                }
+            });
+            
+            // בדיקה אם יש screen ב-URL (למשל כשמגיעים עם קישור ישיר)
+            const urlParams = new URLSearchParams(window.location.search);
+            const screenParam = urlParams.get('screen');
+            
             // אם המשתמש לא מחובר, נציג את מסך ההתחברות
             if (!kfirAgentData.is_logged_in) {
-                this.showScreen('login');
+                this.showScreen('login', true); // skipHistory כי זה טעינה ראשונית
             } else {
-                this.showScreen('dashboard');
+                // אם יש screen ב-URL, נציג אותו (בלי history כי זה טעינה ראשונית)
+                if (screenParam && $('#screen-' + screenParam).length) {
+                    this.showScreen(screenParam, true);
+                } else {
+                    this.showScreen('dashboard', true);
+                }
             }
         },
 
@@ -178,12 +205,23 @@
             $(document).on('click', '.finalize-order', this.finalizeOrder.bind(this));
         },
 
-        showScreen: function(screenName) {
+        showScreen: function(screenName, skipHistory) {
             $('.kfir-screen').hide();
             $('#screen-' + screenName).show();
             this.currentScreen = screenName;
             // גלילה למעלה במובייל/טאבלט
             this.scrollToTop();
+            
+            // הוספה ל-history (אלא אם skipHistory = true)
+            if (!skipHistory && screenName !== 'login') {
+                const url = window.location.pathname + '?screen=' + screenName;
+                window.history.pushState({ screen: screenName }, '', url);
+            }
+        },
+
+        showScreenWithoutHistory: function(screenName) {
+            // שינוי מסך ללא הוספה ל-history (לשימוש ב-popstate)
+            this.showScreen(screenName, true);
         },
 
         scrollToTop: function() {
@@ -196,12 +234,16 @@
         handleScreenChange: function(e) {
             e.preventDefault();
             const screenName = $(e.currentTarget).data('screen');
-            this.showScreen(screenName);
             
-            // אם עוברים למסך הזמנה חדשה, צריך לבחור לקוח
+            // אם עוברים למסך הזמנה חדשה, צריך לבחור לקוח (רק אם אין לקוח נבחר)
             if (screenName === 'new-order') {
-                this.showScreen('find-customer');
+                if (!this.selectedCustomer) {
+                    this.showScreen('find-customer');
+                    return;
+                }
             }
+            
+            this.showScreen(screenName);
         },
 
         searchCustomers: function(e) {

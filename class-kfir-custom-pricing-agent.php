@@ -20,6 +20,8 @@ class KFIR_Custom_Pricing_Agent {
 		add_action( 'wp_ajax_kfir_agent_create_customer', [ $this, 'ajax_create_customer' ] );
 		add_action( 'wp_ajax_kfir_agent_search_customers', [ $this, 'ajax_search_customers' ] );
 		add_action( 'wp_ajax_kfir_agent_search_products', [ $this, 'ajax_search_products' ] );
+		add_action( 'wp_ajax_kfir_agent_get_categories', [ $this, 'ajax_get_categories' ] );
+		add_action( 'wp_ajax_kfir_agent_get_products_by_category', [ $this, 'ajax_get_products_by_category' ] );
 		add_action( 'wp_ajax_kfir_agent_get_customer_orders', [ $this, 'ajax_get_customer_orders' ] );
 		add_action( 'wp_ajax_kfir_agent_get_product_details', [ $this, 'ajax_get_product_details' ] );
 		add_action( 'wp_ajax_kfir_agent_calculate_total', [ $this, 'ajax_calculate_total' ] );
@@ -219,6 +221,20 @@ class KFIR_Custom_Pricing_Agent {
 						<button class="cancel-order kfir-btn-secondary" data-screen="dashboard">❌ ביטול הזמנה</button>
 					</div>
 
+					<div class="kfir-product-browse-tabs">
+						<button type="button" class="kfir-tab-btn active" data-tab="categories">📁 קטגוריות</button>
+						<button type="button" class="kfir-tab-btn" data-tab="products">🛒 מוצרים</button>
+					</div>
+
+					<div id="categories-panel" class="kfir-tab-panel">
+						<div id="categories-list" class="kfir-categories-list"></div>
+						<div id="category-products-wrap" class="kfir-category-products-wrap" style="display: none;">
+							<h4 id="category-products-title" class="kfir-category-products-title"></h4>
+							<div id="category-products-list" class="kfir-products-list"></div>
+						</div>
+					</div>
+
+					<div id="products-panel" class="kfir-tab-panel" style="display: none;">
 					<div class="kfir-form-group">
 						<label>חפש מוצרים</label>
 						<select id="product-search" class="kfir-select" data-placeholder="חפש מוצר או SKU..."></select>
@@ -236,6 +252,7 @@ class KFIR_Custom_Pricing_Agent {
 						<h3>כל המוצרים</h3>
 						<div id="all-products-list" class="kfir-products-list"></div>
 					</div>
+					</div><!-- #products-panel -->
 
 					<div class="order-summary">
 						<div class="total">סה"כ: ₪<span id="order-total">0.00</span></div>
@@ -816,6 +833,98 @@ class KFIR_Custom_Pricing_Agent {
 		}
 
 		wp_send_json( [ 'results' => $results ] );
+	}
+
+	/**
+	 * AJAX: קבלת קטגוריות מוצרים (WooCommerce product_cat)
+	 */
+	public function ajax_get_categories() {
+		check_ajax_referer( 'kfir_agent_nonce', 'nonce' );
+		
+		if ( ! $this->is_agent_page() ) {
+			wp_send_json_error( [ 'message' => 'אין לך הרשאה' ] );
+		}
+
+		$terms = get_terms( [
+			'taxonomy'   => 'product_cat',
+			'hide_empty' => false,
+			'orderby'    => 'name',
+			'order'      => 'ASC',
+			'parent'     => 0,
+		] );
+
+		if ( is_wp_error( $terms ) ) {
+			wp_send_json_success( [ 'categories' => [] ] );
+			return;
+		}
+
+		$categories = [];
+		foreach ( $terms as $term ) {
+			$categories[] = [
+				'id'    => (int) $term->term_id,
+				'name'  => $term->name,
+				'count' => (int) $term->count,
+			];
+		}
+
+		wp_send_json_success( [ 'categories' => $categories ] );
+	}
+
+	/**
+	 * AJAX: קבלת מוצרים לפי קטגוריה
+	 */
+	public function ajax_get_products_by_category() {
+		check_ajax_referer( 'kfir_agent_nonce', 'nonce' );
+		
+		if ( ! $this->is_agent_page() ) {
+			wp_send_json_error( [ 'message' => 'אין לך הרשאה' ] );
+		}
+
+		$category_id = absint( $_GET['category_id'] ?? 0 );
+		$customer_id = absint( $_GET['customer_id'] ?? 0 );
+		if ( ! $category_id ) {
+			wp_send_json_error( [ 'message' => 'לא נבחרה קטגוריה' ] );
+		}
+
+		$query = new WP_Query( [
+			'post_type'      => 'product',
+			'posts_per_page' => 100,
+			'post_status'    => 'publish',
+			'tax_query'      => [
+				[
+					'taxonomy' => 'product_cat',
+					'field'    => 'term_id',
+					'terms'    => $category_id,
+				],
+			],
+		] );
+
+		$products_data = [];
+		$pricing = $customer_id ? new KFIR_Custom_Pricing() : null;
+
+		foreach ( $query->posts as $post ) {
+			$product = wc_get_product( $post->ID );
+			if ( ! $product || $product->is_type( 'variable' ) ) {
+				continue;
+			}
+			$base_price = $product->get_price();
+			$custom_price = null;
+			if ( $pricing && $customer_id ) {
+				$custom_price = $pricing->get_customer_price( $customer_id, $product->get_id() );
+			}
+			$image_id = $product->get_image_id();
+			$image_url = $image_id ? wp_get_attachment_image_url( $image_id, 'thumbnail' ) : wc_placeholder_img_src( 'thumbnail' );
+			$products_data[] = [
+				'id'           => $product->get_id(),
+				'name'         => $product->get_name(),
+				'sku'          => $product->get_sku(),
+				'price'        => $base_price ?: 0,
+				'custom_price' => $custom_price,
+				'image_url'    => $image_url ?: '',
+			];
+		}
+
+		wp_send_json_success( [ 'products' => $products_data ] );
 	}
 
 	/**

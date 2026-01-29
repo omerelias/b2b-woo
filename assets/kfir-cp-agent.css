@@ -289,6 +289,115 @@
 	box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
+/* Product browse tabs: Categories / Products */
+.kfir-product-browse-tabs {
+	display: flex;
+	gap: 0;
+	margin-bottom: 20px;
+	border-radius: 12px;
+	overflow: hidden;
+	background: #e9ecef;
+	padding: 4px;
+}
+
+.kfir-tab-btn {
+	flex: 1;
+	padding: 14px 20px;
+	border: none;
+	background: transparent;
+	font-size: 1rem;
+	font-weight: 600;
+	color: #495057;
+	cursor: pointer;
+	transition: all 0.25s ease;
+	border-radius: 10px;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.kfir-tab-btn:hover {
+	background: rgba(255, 255, 255, 0.7);
+	color: #1e293b;
+}
+
+.kfir-tab-btn.active {
+	background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+	color: #fff;
+	box-shadow: 0 2px 10px rgba(59, 130, 246, 0.3);
+}
+
+.kfir-tab-panel {
+	margin-bottom: 20px;
+}
+
+/* Categories list */
+.kfir-categories-list {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+	gap: 10px;
+	margin-bottom: 20px;
+}
+
+.kfir-category-item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 14px 16px;
+	background: #fff;
+	border: 2px solid #e9ecef;
+	border-radius: 12px;
+	cursor: pointer;
+	transition: all 0.25s ease;
+	min-width: 0;
+	overflow: hidden;
+}
+
+.kfir-category-item:hover {
+	border-color: #3b82f6;
+	background: rgba(59, 130, 246, 0.06);
+}
+
+.kfir-category-item.active {
+	border-color: #3b82f6;
+	background: rgba(59, 130, 246, 0.12);
+	box-shadow: 0 2px 12px rgba(59, 130, 246, 0.2);
+}
+
+.kfir-category-name {
+	font-weight: 600;
+	color: #1e293b;
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.kfir-category-count {
+	font-size: 0.85rem;
+	color: #64748b;
+	flex-shrink: 0;
+}
+
+.kfir-category-products-wrap {
+	margin-top: 20px;
+	padding-top: 20px;
+	border-top: 1px solid #e9ecef;
+}
+
+.kfir-category-products-title {
+	font-size: 1.15rem;
+	color: #495057;
+	margin-bottom: 12px;
+}
+
+.kfir-category-products-list .product-item {
+	margin-bottom: 12px;
+}
+
 /* Products Section */
 .kfir-products-section {
 	margin: 30px 0;

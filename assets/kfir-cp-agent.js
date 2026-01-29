@@ -111,6 +111,10 @@
             // המשך לתשלום
             $(document).on('click', '.proceed-checkout', this.proceedToCheckout.bind(this));
             
+            // טאבים: קטגוריות / מוצרים
+            $(document).on('click', '.kfir-tab-btn', this.handleProductBrowseTab.bind(this));
+            $(document).on('click', '.kfir-category-item', this.handleCategoryClick.bind(this));
+
             // אקורדיון למוצרים שנרכשו בעבר
             $(document).on('click', '#purchased-products-header', function(e) {
                 e.preventDefault();
@@ -330,8 +334,9 @@
             // טעינת מוצרים שנרכשו בעבר
             this.loadPurchasedProducts(customerId);
 
-            // מעבר למסך יצירת הזמנה
+            // מעבר למסך יצירת הזמנה (ברירת מחדל: טאב קטגוריות)
             this.showScreen('new-order');
+            this.loadCategories();
         },
 
         loadPurchasedProducts: function(customerId) {
@@ -432,6 +437,120 @@
             
             // עדכון הסיכום אחרי הוספת כל המוצרים
             this.updateOrderSummary();
+        },
+
+        handleProductBrowseTab: function(e) {
+            const tab = $(e.currentTarget).data('tab');
+            $('.kfir-tab-btn').removeClass('active');
+            $(e.currentTarget).addClass('active');
+            if (tab === 'categories') {
+                $('#products-panel').hide();
+                $('#categories-panel').show();
+                this.loadCategories();
+            } else {
+                $('#categories-panel').hide();
+                $('#products-panel').show();
+            }
+        },
+
+        loadCategories: function() {
+            const $container = $('#categories-list');
+            $container.empty().html('<div class="kfir-loading">טוען קטגוריות...</div>');
+            $.ajax({
+                url: kfirAgentData.ajaxurl,
+                type: 'GET',
+                data: {
+                    action: 'kfir_agent_get_categories',
+                    nonce: kfirAgentData.nonce
+                },
+                success: (response) => {
+                    if (response.success && response.data.categories) {
+                        this.displayCategories(response.data.categories);
+                    } else {
+                        $container.html('<div class="kfir-empty-state">לא נמצאו קטגוריות</div>');
+                    }
+                },
+                error: () => {
+                    $container.html('<div class="kfir-empty-state">שגיאה בטעינת קטגוריות</div>');
+                }
+            });
+        },
+
+        displayCategories: function(categories) {
+            const $container = $('#categories-list');
+            $container.empty();
+            if (!categories.length) {
+                $container.html('<div class="kfir-empty-state">לא נמצאו קטגוריות</div>');
+                return;
+            }
+            categories.forEach((cat) => {
+                const $item = $(`
+                    <div class="kfir-category-item" data-category-id="${cat.id}" data-category-name="${(cat.name || '').replace(/"/g, '&quot;')}">
+                        <span class="kfir-category-name">${cat.name}</span>
+                        ${cat.count > 0 ? `<span class="kfir-category-count">(${cat.count})</span>` : ''}
+                    </div>
+                `);
+                $container.append($item);
+            });
+        },
+
+        handleCategoryClick: function(e) {
+            const $item = $(e.currentTarget);
+            const categoryId = $item.data('category-id');
+            const categoryName = $item.data('category-name') || 'קטגוריה';
+            $('.kfir-category-item').removeClass('active');
+            $item.addClass('active');
+            this.loadCategoryProducts(categoryId, categoryName);
+        },
+
+        loadCategoryProducts: function(categoryId, categoryName) {
+            const $wrap = $('#category-products-wrap');
+            const $list = $('#category-products-list');
+            const $title = $('#category-products-title');
+            $title.text('מוצרים בקטגוריה: ' + categoryName);
+            $list.empty().html('<div class="kfir-loading">טוען מוצרים...</div>');
+            $wrap.show();
+            $.ajax({
+                url: kfirAgentData.ajaxurl,
+                type: 'GET',
+                data: {
+                    action: 'kfir_agent_get_products_by_category',
+                    nonce: kfirAgentData.nonce,
+                    category_id: categoryId,
+                    customer_id: this.selectedCustomer ? this.selectedCustomer.id : 0
+                },
+                success: (response) => {
+                    if (response.success && response.data.products) {
+                        this.displayCategoryProducts(response.data.products);
+                    } else {
+                        $list.html('<div class="kfir-empty-state">אין מוצרים בקטגוריה זו</div>');
+                    }
+                },
+                error: () => {
+                    $list.html('<div class="kfir-empty-state">שגיאה בטעינת מוצרים</div>');
+                }
+            });
+        },
+
+        displayCategoryProducts: function(products) {
+            const $container = $('#category-products-list');
+            $container.empty();
+            if (!products.length) {
+                $container.html('<div class="kfir-empty-state">אין מוצרים בקטגוריה זו</div>');
+                return;
+            }
+            products.forEach((product) => {
+                // יצירת מוצר עם quantity controls (מתחיל ב-0)
+                const $item = this.createProductItem({
+                    id: product.id,
+                    name: product.name,
+                    sku: product.sku,
+                    price: product.price,
+                    custom_price: product.custom_price,
+                    image_url: product.image_url || ''
+                }, false); // false = לא נרכש בעבר, אז quantity מתחיל ב-0
+                $container.append($item);
+            });
         },
 
         initProductSearch: function() {

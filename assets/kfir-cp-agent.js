@@ -49,6 +49,35 @@
             }
         },
 
+        resetOrder: function() {
+            // ניקוי כל הסטייט
+            this.orderItems = [];
+            this.selectedCustomer = null;
+            this.clearState();
+            
+            // ניקוי ה-DOM
+            $('#all-products-list').empty();
+            $('#purchased-products-list').empty();
+            $('#category-products-list').empty();
+            $('#checkout-items').empty();
+            $('#selected-customer-name').text('-');
+            $('#checkout-customer-name').text('-');
+            $('#success-customer-name').text('-');
+            $('#order-total').text('0.00');
+            $('#checkout-total').text('0.00');
+            
+            // איפוס כמות כל המוצרים
+            $('.product-item .product-quantity').val(0);
+            
+            // חזרה לטאב קטגוריות
+            $('.kfir-tab-btn[data-tab="categories"]').addClass('active');
+            $('.kfir-tab-btn').not('[data-tab="categories"]').removeClass('active');
+            $('#categories-panel').show();
+            $('#search-panel').hide();
+            $('#purchased-panel').hide();
+            $('#category-products-wrap').hide();
+        },
+
         init: function() {
             this.bindEvents();
             
@@ -182,18 +211,29 @@
                 }
                 
                 if (productId && !isNaN(productId)) {
+                    // חילוץ תמונות מה-DOM
+                    const $productImg = $item.find('.product-image img');
+                    const imageUrl = $productImg.attr('src') || '';
+                    const imageUrlFull = $productImg.data('full-image') || '';
+                    
                     const existingItem = this.orderItems.find(item => item.id == productId);
                     if (quantity >= 1) {
                         if (existingItem) {
                             existingItem.quantity = quantity;
                             existingItem.price = price;
+                            existingItem.name = productName;
+                            // עדכון תמונות רק אם אין כבר
+                            if (!existingItem.image_url) existingItem.image_url = imageUrl;
+                            if (!existingItem.image_url_full) existingItem.image_url_full = imageUrlFull;
                         } else {
                             // הוספה אם הכמות >= 1
                             this.orderItems.push({
                                 id: productId,
                                 name: productName,
                                 price: price,
-                                quantity: quantity
+                                quantity: quantity,
+                                image_url: imageUrl,
+                                image_url_full: imageUrlFull
                             });
                         }
                     } else {
@@ -271,6 +311,7 @@
             
             // Lightbox לתמונות מוצרים
             $(document).on('click', '.product-image img.kfir-product-image-clickable', this.openImageLightbox.bind(this));
+            $(document).on('click', '.checkout-product-name', this.openProductImageLightbox.bind(this));
             $(document).on('click', '.kfir-lightbox-overlay, .kfir-lightbox-close', this.closeImageLightbox.bind(this));
             $(document).on('keydown', (e) => {
                 if (e.key === 'Escape' && $('.kfir-lightbox-overlay').is(':visible')) {
@@ -312,11 +353,9 @@
             e.preventDefault();
             const screenName = $(e.currentTarget).data('screen');
             
-            // אם מבטלים הזמנה (חוזרים לדאשבורד), ננקה את המצב
-            if (screenName === 'dashboard' && this.currentScreen === 'new-order') {
-                this.clearState();
-                this.orderItems = [];
-                this.selectedCustomer = null;
+            // אם מבטלים הזמנה (חוזרים לדאשבורד), ננקה את כל הסטייט
+            if (screenName === 'dashboard' && (this.currentScreen === 'new-order' || this.currentScreen === 'checkout')) {
+                this.resetOrder();
             }
             
             // אם עוברים למסך הזמנה חדשה, צריך לבחור לקוח (רק אם אין לקוח נבחר)
@@ -1025,6 +1064,8 @@
                 
                 // רק מוצרים עם כמות >= 1 נחשבים כנבחרים
                 if (quantity >= 1) {
+                    const productName = $item.find('strong').text() || 'מוצר ללא שם';
+                    
                     // ניסיון לחלץ מחיר מותאם, אחרת מחיר רגיל
                     let price = 0;
                     const $customPrice = $item.find('.custom-price');
@@ -1045,10 +1086,18 @@
                         }
                     }
 
+                    // חילוץ תמונות מה-DOM
+                    const $productImg = $item.find('.product-image img');
+                    const imageUrl = $productImg.attr('src') || '';
+                    const imageUrlFull = $productImg.data('full-image') || '';
+
                     selectedItems.push({
                         id: productId,
+                        name: productName,
                         quantity: quantity,
-                        price: price
+                        price: price,
+                        image_url: imageUrl,
+                        image_url_full: imageUrlFull
                     });
                 }
             });
@@ -1074,60 +1123,97 @@
             // איסוף הפריטים שנבחרו מה-DOM (כולל מוצרים שנרכשו בעבר)
             const selectedItems = [];
             
-            // איסוף מכל הרשימות (מוצרים שנרכשו + כל המוצרים) - רק מוצרים עם quantity >= 1
-            $('.product-item').each(function() {
-                const $item = $(this);
-                const quantity = parseInt($item.find('.product-quantity').val()) || 0;
-                
-                // דלג על מוצרים עם כמות 0
-                if (quantity < 1) {
-                    return;
-                }
-                
-                const productId = parseInt($item.data('product-id'));
-                
-                // בדיקה שהמזהה תקין
-                if (!productId || isNaN(productId)) {
-                    console.error('Invalid productId from DOM:', $item.data('product-id'), $item);
-                    return;
-                }
-                const productName = $item.find('strong').text() || 'מוצר ללא שם';
-                
-                // ניסיון לחלץ מחיר מותאם, אחרת מחיר רגיל
-                let price = 0;
-                const $customPrice = $item.find('.custom-price');
-                if ($customPrice.length && $customPrice.text().includes('מחיר ללקוח')) {
-                    // חילוץ מחיר מותאם
-                    const priceText = $customPrice.text().replace(/[^\d.]/g, '');
-                    price = priceText ? parseFloat(priceText) : 0;
-                } else {
-                    // חילוץ מחיר רגיל
-                    const $productPrice = $item.find('.product-price');
-                    if ($productPrice.length) {
-                        const priceText = $productPrice.text().replace(/[^\d.]/g, '');
-                        price = priceText ? parseFloat(priceText) : 0;
-                    } else {
-                        // אם יש רק custom-price עם ₪0.00
+            // איסוף הפריטים - קודם מ-orderItems (אם יש), ואז מה-DOM
+            // אם יש orderItems עם quantity >= 1, נשתמש בהם
+            const itemsFromOrderItems = this.orderItems.filter(item => item.quantity >= 1);
+            
+            if (itemsFromOrderItems.length > 0) {
+                // אם יש פריטים ב-orderItems, נשתמש בהם, אבל נשלים נתונים חסרים מה-DOM
+                itemsFromOrderItems.forEach(item => {
+                    // אם חסר שם או תמונה, ננסה למצוא מה-DOM
+                    if (!item.name || !item.image_url) {
+                        const $domItem = $(`.product-item[data-product-id="${item.id}"]`);
+                        if ($domItem.length) {
+                            if (!item.name) {
+                                item.name = $domItem.find('strong').text() || 'מוצר ללא שם';
+                            }
+                            if (!item.image_url || !item.image_url_full) {
+                                const $productImg = $domItem.find('.product-image img');
+                                if (!item.image_url) item.image_url = $productImg.attr('src') || '';
+                                if (!item.image_url_full) item.image_url_full = $productImg.data('full-image') || '';
+                            }
+                        }
+                    }
+                    selectedItems.push(item);
+                });
+            } else {
+                // אחרת, נאסוף מה-DOM
+                $('.product-item').each(function() {
+                    const $item = $(this);
+                    const quantity = parseInt($item.find('.product-quantity').val()) || 0;
+                    
+                    // דלג על מוצרים עם כמות 0
+                    if (quantity < 1) {
+                        return;
+                    }
+                    
+                    const productId = parseInt($item.data('product-id'));
+                    
+                    // בדיקה שהמזהה תקין
+                    if (!productId || isNaN(productId)) {
+                        console.error('Invalid productId from DOM:', $item.data('product-id'), $item);
+                        return;
+                    }
+                    const productName = $item.find('strong').text() || 'מוצר ללא שם';
+                    
+                    // ניסיון לחלץ מחיר מותאם, אחרת מחיר רגיל
+                    let price = 0;
+                    const $customPrice = $item.find('.custom-price');
+                    if ($customPrice.length && $customPrice.text().includes('מחיר ללקוח')) {
+                        // חילוץ מחיר מותאם
                         const priceText = $customPrice.text().replace(/[^\d.]/g, '');
                         price = priceText ? parseFloat(priceText) : 0;
+                    } else {
+                        // חילוץ מחיר רגיל
+                        const $productPrice = $item.find('.product-price');
+                        if ($productPrice.length) {
+                            const priceText = $productPrice.text().replace(/[^\d.]/g, '');
+                            price = priceText ? parseFloat(priceText) : 0;
+                        } else {
+                            // אם יש רק custom-price עם ₪0.00
+                            const priceText = $customPrice.text().replace(/[^\d.]/g, '');
+                            price = priceText ? parseFloat(priceText) : 0;
+                        }
                     }
-                }
 
-                const item = {
-                    id: productId,
-                    name: productName,
-                    quantity: quantity,
-                    price: price
-                };
-                
-                // בדיקה שהפריט תקין לפני הוספה
-                if (!item.id || item.id === undefined || item.id === null) {
-                    console.error('Invalid item before push:', item);
-                    return;
-                }
-                
-                selectedItems.push(item);
-            });
+                    // חילוץ תמונות מה-DOM או מ-orderItems הקיימים
+                    const $productImg = $item.find('.product-image img');
+                    const imageUrl = $productImg.attr('src') || '';
+                    const imageUrlFull = $productImg.data('full-image') || '';
+                    
+                    // אם אין תמונה ב-DOM, נחפש ב-orderItems הקיימים
+                    let existingItem = this.orderItems.find(item => item.id == productId);
+                    const finalImageUrl = imageUrl || (existingItem ? existingItem.image_url : '');
+                    const finalImageUrlFull = imageUrlFull || (existingItem ? existingItem.image_url_full : '');
+
+                    const item = {
+                        id: productId,
+                        name: productName,
+                        quantity: quantity,
+                        price: price,
+                        image_url: finalImageUrl,
+                        image_url_full: finalImageUrlFull
+                    };
+                    
+                    // בדיקה שהפריט תקין לפני הוספה
+                    if (!item.id || item.id === undefined || item.id === null) {
+                        console.error('Invalid item before push:', item);
+                        return;
+                    }
+                    
+                    selectedItems.push(item);
+                }.bind(this));
+            }
 
             if (selectedItems.length === 0) {
                 this.showNotification('יש לבחור לפחות מוצר אחד', 'error');
@@ -1166,9 +1252,12 @@
                 const itemTotal = itemPrice * itemQuantity;
                 total += itemTotal;
 
+                const productImageUrl = item.image_url_full || item.image_url || '';
                 const $row = $(`
-                    <tr data-product-id="${item.id}">
-                        <td>${item.name || 'מוצר ללא שם'}</td>
+                    <tr data-product-id="${item.id}" data-product-image="${productImageUrl || ''}">
+                        <td>
+                            <span class="checkout-product-name" style="cursor: pointer; text-decoration: underline; color: #3b82f6;">${item.name || 'מוצר ללא שם'}</span>
+                        </td>
                         <td>
                             <input type="number" class="edit-price" value="${itemPrice.toFixed(2)}" step="0.01" min="0">
                         </td>
@@ -1189,16 +1278,29 @@
 
         updateCheckoutTotal: function() {
             let total = 0;
+            const updatedItems = [];
 
-            $('#checkout-items tr').each(function() {
+            $('#checkout-items tr[data-product-id]').each(function() {
                 const $row = $(this);
+                const productId = parseInt($row.data('product-id'));
                 const price = parseFloat($row.find('.edit-price').val()) || 0;
                 const quantity = parseInt($row.find('.edit-quantity').val()) || 1;
                 const itemTotal = price * quantity;
+                const productImageUrl = $row.data('product-image') || '';
                 
                 $row.find('.item-total').text('₪' + itemTotal.toFixed(2));
                 total += itemTotal;
-            });
+                
+                // עדכון orderItems עם המחיר והכמות המעודכנים
+                const existingItem = this.orderItems.find(item => item.id == productId);
+                if (existingItem) {
+                    existingItem.price = price;
+                    existingItem.quantity = quantity;
+                    if (productImageUrl) {
+                        existingItem.image_url_full = productImageUrl;
+                    }
+                }
+            }.bind(this));
 
             // הוספת דמי משלוח אם נבחרה שיטת משלוח
             const shippingCost = parseFloat($('#shipping-cost').val()) || 0;
@@ -1286,10 +1388,8 @@
                         $('#order-number').text('#' + response.data.order_number);
                         $('#success-order-total').text('₪' + parseFloat(response.data.total).toFixed(2));
                         this.showScreen('order-success');
-                        this.orderItems = [];
-                        this.selectedCustomer = null;
-                        // ניקוי מצב שמור אחרי סיום הזמנה
-                        this.clearState();
+                        // ניקוי כל הסטייט אחרי סיום הזמנה
+                        this.resetOrder();
                     } else {
                         this.showNotification(response.data?.message || 'שגיאה ביצירת הזמנה', 'error');
                     }
@@ -1420,6 +1520,35 @@
             e.stopPropagation();
             $('.kfir-lightbox-overlay').fadeOut(300);
             $('body').css('overflow', '');
+        },
+
+        openProductImageLightbox: function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const $row = $(e.target).closest('tr');
+            let imageSrc = $row.data('product-image');
+            
+            // אם אין תמונה ב-data attribute, ננסה למצוא ב-orderItems
+            if (!imageSrc || imageSrc === '') {
+                const productId = parseInt($row.data('product-id'));
+                const existingItem = this.orderItems.find(item => item.id == productId);
+                if (existingItem) {
+                    imageSrc = existingItem.image_url_full || existingItem.image_url || '';
+                }
+            }
+            
+            if (!imageSrc || imageSrc === '' || imageSrc === kfirAgentData.placeholder_img) {
+                this.showNotification('אין תמונה זמינה למוצר זה', 'error');
+                return; // לא לפתוח lightbox אם אין תמונה או זה placeholder
+            }
+            
+            const productName = $(e.target).text() || '';
+            
+            // הצגת התמונה ב-lightbox
+            const $lightboxImg = $('.kfir-lightbox-image');
+            $lightboxImg.attr('src', imageSrc).attr('alt', productName);
+            $('.kfir-lightbox-overlay').fadeIn(300);
+            $('body').css('overflow', 'hidden');
         }
     };
 

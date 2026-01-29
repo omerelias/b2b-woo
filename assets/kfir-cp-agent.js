@@ -514,7 +514,8 @@
                                     sku: product.sku,
                                     price: product.price,
                                     custom_price: product.custom_price,
-                                    image_url: product.image_url || ''
+                                    image_url: product.image_url || '',
+                                    image_url_full: product.image_url_full || ''
                                 }, false);
                                 
                                 // הגדרת כמות
@@ -599,7 +600,8 @@
                     sku: product.sku,
                     price: product.price,
                     custom_price: product.custom_price,
-                    image_url: product.image_url || ''
+                    image_url: product.image_url || '',
+                    image_url_full: product.image_url_full || ''
                 }, true);
                 $container.append($item);
                 
@@ -794,7 +796,8 @@
                     sku: product.sku,
                     price: product.price,
                     custom_price: product.custom_price,
-                    image_url: product.image_url || ''
+                    image_url: product.image_url || '',
+                    image_url_full: product.image_url_full || ''
                 }, false); // false = לא נרכש בעבר, אז quantity מתחיל ב-0
                 $container.append($item);
             });
@@ -885,7 +888,8 @@
                             basePrice: basePrice, // מחיר בסיסי לתצוגה
                             customPrice: customPrice, // מחיר מותאם לתצוגה
                             quantity: 1,
-                            image_url: product.image_url || ''
+                            image_url: product.image_url || '',
+                            image_url_full: product.image_url_full || ''
                         };
                         
                         // בדיקה שהפריט תקין לפני הוספה
@@ -905,7 +909,9 @@
                             id: productId,
                             name: productName || 'מוצר ללא שם',
                             price: 0,
-                            quantity: 1
+                            quantity: 1,
+                            image_url: '',
+                            image_url_full: ''
                         };
                         this.orderItems.push(item);
                         this.displayProductInOrder(item);
@@ -921,7 +927,9 @@
                         id: productId,
                         name: productName || 'מוצר ללא שם',
                         price: 0,
-                        quantity: 1
+                        quantity: 1,
+                        image_url: '',
+                        image_url_full: ''
                     };
                     this.orderItems.push(item);
                     this.displayProductInOrder(item);
@@ -937,6 +945,7 @@
             const productPrice = product.price !== null && product.price !== undefined ? parseFloat(product.price) : null;
             const customPrice = product.custom_price !== null && product.custom_price !== undefined ? parseFloat(product.custom_price) : null;
             const imageUrl = product.image_url || '';
+            const fullImageUrl = product.image_url_full || imageUrl || '';
             
             // קביעת מה להציג
             let priceDisplay = '';
@@ -965,7 +974,11 @@
             return $(`
                 <div class="product-item" data-product-id="${productId}">
                     <div class="product-image">
-                        <img src="${imageUrl || kfirAgentData.placeholder_img}" alt="${productName}" class="kfir-product-image-clickable" onerror="this.onerror=null; this.src='${kfirAgentData.placeholder_img || ''}'">
+                        <img src="${imageUrl || kfirAgentData.placeholder_img}" 
+                             alt="${productName}" 
+                             class="kfir-product-image-clickable" 
+                             data-full-image="${fullImageUrl || ''}"
+                             onerror="this.onerror=null; this.src='${kfirAgentData.placeholder_img || ''}'">
                     </div>
                     <div class="product-details">
                         <strong>${productName}</strong>
@@ -990,7 +1003,8 @@
                 name: item.name,
                 price: item.basePrice !== undefined ? item.basePrice : item.price,
                 custom_price: item.customPrice !== undefined ? item.customPrice : (item.basePrice !== undefined && item.basePrice != item.price ? item.price : null),
-                image_url: item.image_url || ''
+                image_url: item.image_url || '',
+                image_url_full: item.image_url_full || ''
             });
             $container.append($itemElement);
             
@@ -1379,16 +1393,27 @@
 
         openImageLightbox: function(e) {
             e.stopPropagation();
-            const imageSrc = $(e.target).attr('src');
-            const imageAlt = $(e.target).attr('alt') || '';
+            const $img = $(e.target);
+            const thumbnailSrc = $img.attr('src');
+            const fullImageSrc = $img.data('full-image') || thumbnailSrc;
+            const imageAlt = $img.attr('alt') || '';
             
-            if (!imageSrc || imageSrc === kfirAgentData.placeholder_img) {
-                return; // לא לפתוח lightbox לתמונת placeholder
+            if (!thumbnailSrc || thumbnailSrc === kfirAgentData.placeholder_img || !fullImageSrc) {
+                return; // לא לפתוח lightbox לתמונת placeholder או אם אין תמונה מלאה
             }
             
-            $('.kfir-lightbox-image').attr('src', imageSrc).attr('alt', imageAlt);
+            // הצגת תמונה קטנה תחילה, ואז החלפה לתמונה גדולה
+            const $lightboxImg = $('.kfir-lightbox-image');
+            $lightboxImg.attr('src', thumbnailSrc).attr('alt', imageAlt);
             $('.kfir-lightbox-overlay').fadeIn(300);
             $('body').css('overflow', 'hidden');
+            
+            // טעינת התמונה המלאה
+            const fullImg = new Image();
+            fullImg.onload = function() {
+                $lightboxImg.attr('src', fullImageSrc);
+            };
+            fullImg.src = fullImageSrc;
         },
 
         closeImageLightbox: function(e) {

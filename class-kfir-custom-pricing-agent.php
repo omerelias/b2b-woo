@@ -971,6 +971,7 @@ class KFIR_Custom_Pricing_Agent {
 			}
 			$image_id = $product->get_image_id();
 			$image_url = $image_id ? wp_get_attachment_image_url( $image_id, 'thumbnail' ) : wc_placeholder_img_src( 'thumbnail' );
+			$image_url_full = $image_id ? wp_get_attachment_image_url( $image_id, 'full' ) : '';
 			$products_data[] = [
 				'id'           => $product->get_id(),
 				'name'         => $product->get_name(),
@@ -978,6 +979,7 @@ class KFIR_Custom_Pricing_Agent {
 				'price'        => $base_price ?: 0,
 				'custom_price' => $custom_price,
 				'image_url'    => $image_url ?: '',
+				'image_url_full' => $image_url_full ?: '',
 			];
 		}
 
@@ -1025,8 +1027,10 @@ class KFIR_Custom_Pricing_Agent {
 			// קבלת תמונת המוצר
 			$image_id = $product->get_image_id();
 			$image_url = '';
+			$image_url_full = '';
 			if ( $image_id ) {
 				$image_url = wp_get_attachment_image_url( $image_id, 'thumbnail' );
+				$image_url_full = wp_get_attachment_image_url( $image_id, 'full' );
 			} else {
 				// אם אין תמונה, נשתמש בתמונת placeholder
 				$image_url = wc_placeholder_img_src( 'thumbnail' );
@@ -1039,6 +1043,7 @@ class KFIR_Custom_Pricing_Agent {
 				'price' => $custom_price ?: $product->get_price(),
 				'custom_price' => $custom_price,
 				'image_url' => $image_url,
+				'image_url_full' => $image_url_full ?: '',
 			];
 		}
 
@@ -1080,8 +1085,10 @@ class KFIR_Custom_Pricing_Agent {
 		// קבלת תמונת המוצר
 		$image_id = $product->get_image_id();
 		$image_url = '';
+		$image_url_full = '';
 		if ( $image_id ) {
 			$image_url = wp_get_attachment_image_url( $image_id, 'thumbnail' );
+			$image_url_full = wp_get_attachment_image_url( $image_id, 'full' );
 		} else {
 			// אם אין תמונה, נשתמש בתמונת placeholder
 			$image_url = wc_placeholder_img_src( 'thumbnail' );
@@ -1095,6 +1102,7 @@ class KFIR_Custom_Pricing_Agent {
 			'custom_price' => $custom_price, // מחיר מותאם (null אם אין)
 			'final_price' => $final_price, // מחיר סופי לשימוש
 			'image_url' => $image_url,
+			'image_url_full' => $image_url_full ?: '',
 		] );
 	}
 

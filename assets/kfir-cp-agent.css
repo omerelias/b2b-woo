@@ -349,6 +349,17 @@
 	grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
 	gap: 10px;
 	margin-bottom: 20px;
+	position: relative;
+	min-height: 60px;
+}
+
+.kfir-categories-list .kfir-loader {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	width: 100%;
+	grid-column: 1 / -1;
 }
 
 .kfir-category-item {
@@ -393,6 +404,13 @@
 	flex-shrink: 0;
 }
 
+.kfir-category-has-children {
+	margin-right: 8px;
+	font-size: 1rem;
+	flex-shrink: 0;
+}
+
+
 .kfir-category-products-wrap {
 	margin-top: 20px;
 	padding-top: 20px;
@@ -405,8 +423,43 @@
 	margin-bottom: 12px;
 }
 
+.kfir-category-products-list {
+	position: relative;
+	min-height: 200px;
+	max-height: 500px; /* גובה של כ-6 מוצרים */
+	overflow-y: auto;
+	overflow-x: hidden;
+}
+
+/* Scrollbar styling for category products list */
+.kfir-category-products-list::-webkit-scrollbar {
+	width: 8px;
+}
+
+.kfir-category-products-list::-webkit-scrollbar-track {
+	background: #f1f1f1;
+	border-radius: 10px;
+}
+
+.kfir-category-products-list::-webkit-scrollbar-thumb {
+	background: #888;
+	border-radius: 10px;
+}
+
+.kfir-category-products-list::-webkit-scrollbar-thumb:hover {
+	background: #555;
+}
+
 .kfir-category-products-list .product-item {
 	margin-bottom: 12px;
+}
+
+.kfir-category-products-list .kfir-loader {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	width: 100%;
 }
 
 /* Products Section */
@@ -612,7 +665,10 @@
 	padding: 20px;
 	background: linear-gradient(135deg, #f8f9fa, #e9ecef);
 	border-radius: 12px;
-	position: relative;
+	position: sticky;
+	bottom: 0;
+	z-index: 100;
+	box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
 }
 
 .order-summary .total {
@@ -924,14 +980,10 @@
 		flex-shrink: 0;
 	}
 	
-	/* Sticky order summary on mobile/tablet */
+	/* Order summary responsive adjustments */
 	.order-summary {
-		position: sticky;
-		bottom: 0;
-		z-index: 100;
 		margin-top: 20px;
 		margin-bottom: 0;
-		box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
 	}
 	
 	.order-summary,

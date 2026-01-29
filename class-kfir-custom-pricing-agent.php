@@ -874,29 +874,49 @@ class KFIR_Custom_Pricing_Agent {
 			wp_send_json_error( [ 'message' => 'אין לך הרשאה' ] );
 		}
 
+		$parent_id = absint( $_GET['parent_id'] ?? 0 );
+
 		$terms = get_terms( [
 			'taxonomy'   => 'product_cat',
 			'hide_empty' => false,
 			'orderby'    => 'name',
 			'order'      => 'ASC',
-			'parent'     => 0,
+			'parent'     => $parent_id,
 		] );
 
 		if ( is_wp_error( $terms ) ) {
-			wp_send_json_success( [ 'categories' => [] ] );
+			wp_send_json_success( [ 'categories' => [], 'parent_id' => $parent_id ] );
 			return;
 		}
 
 		$categories = [];
 		foreach ( $terms as $term ) {
+			// סינון החוצה את קטגוריית "uncategorized"
+			if ( $term->slug === 'uncategorized' || strtolower( $term->name ) === 'uncategorized' ) {
+				continue;
+			}
+			
+			// בדיקה אם יש תת-קטגוריות
+			$children = get_terms( [
+				'taxonomy'   => 'product_cat',
+				'hide_empty' => false,
+				'parent'     => $term->term_id,
+			] );
+			$has_children = ! is_wp_error( $children ) && ! empty( $children );
+
 			$categories[] = [
-				'id'    => (int) $term->term_id,
-				'name'  => $term->name,
-				'count' => (int) $term->count,
+				'id'          => (int) $term->term_id,
+				'name'        => $term->name,
+				'count'       => (int) $term->count,
+				'has_children' => $has_children,
 			];
 		}
 
-		wp_send_json_success( [ 'categories' => $categories ] );
+		wp_send_json_success( [ 
+			'categories' => $categories,
+			'parent_id'  => $parent_id,
+			'parent_name' => $parent_id > 0 ? get_term( $parent_id, 'product_cat' )->name : '',
+		] );
 	}
 
 	/**

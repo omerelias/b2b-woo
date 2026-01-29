@@ -6,6 +6,49 @@
         selectedCustomer: null,
         orderItems: [],
 
+        // שמירה וטעינה מ-sessionStorage
+        saveState: function() {
+            try {
+                const state = {
+                    currentScreen: this.currentScreen,
+                    selectedCustomer: this.selectedCustomer,
+                    orderItems: this.orderItems
+                };
+                sessionStorage.setItem('kfir_agent_order_state', JSON.stringify(state));
+            } catch (e) {
+                console.warn('Failed to save order state:', e);
+            }
+        },
+
+        loadState: function() {
+            try {
+                const saved = sessionStorage.getItem('kfir_agent_order_state');
+                if (saved) {
+                    const state = JSON.parse(saved);
+                    if (state.selectedCustomer) {
+                        this.selectedCustomer = state.selectedCustomer;
+                    }
+                    if (state.orderItems && Array.isArray(state.orderItems)) {
+                        this.orderItems = state.orderItems;
+                    }
+                    if (state.currentScreen) {
+                        return state.currentScreen;
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to load order state:', e);
+            }
+            return null;
+        },
+
+        clearState: function() {
+            try {
+                sessionStorage.removeItem('kfir_agent_order_state');
+            } catch (e) {
+                console.warn('Failed to clear order state:', e);
+            }
+        },
+
         init: function() {
             this.bindEvents();
             
@@ -34,11 +77,34 @@
             if (!kfirAgentData.is_logged_in) {
                 this.showScreen('login', true); // skipHistory כי זה טעינה ראשונית
             } else {
+                // טעינת מצב שמור
+                const savedScreen = this.loadState();
+                
                 // אם יש screen ב-URL, נציג אותו (בלי history כי זה טעינה ראשונית)
-                if (screenParam && $('#screen-' + screenParam).length) {
-                    this.showScreen(screenParam, true);
-                } else {
-                    this.showScreen('dashboard', true);
+                let screenToShow = screenParam && $('#screen-' + screenParam).length ? screenParam : 'dashboard';
+                
+                // אם יש מצב שמור עם מסך הזמנה, נשתמש בו
+                if (savedScreen && (savedScreen === 'new-order' || savedScreen === 'checkout')) {
+                    screenToShow = savedScreen;
+                }
+                
+                this.showScreen(screenToShow, true);
+                
+                // אם יש מצב שמור, נשחזר את הנתונים
+                if (this.selectedCustomer) {
+                    this.restoreOrderState();
+                }
+                
+                // אם המסך הוא new-order, נפתח את טאב קטגוריות ונטען אותן
+                if (screenToShow === 'new-order') {
+                    // פתיחת טאב קטגוריות
+                    $('.kfir-tab-btn[data-tab="categories"]').addClass('active');
+                    $('.kfir-tab-btn').not('[data-tab="categories"]').removeClass('active');
+                    $('#categories-panel').show();
+                    $('#search-panel').hide();
+                    $('#purchased-panel').hide();
+                    // טעינת קטגוריות
+                    this.loadCategories(0);
                 }
             }
         },
@@ -77,6 +143,7 @@
                     const productId = parseInt($item.data('product-id'));
                     this.orderItems = this.orderItems.filter(item => item.id != productId);
                     this.updateOrderSummary();
+                    this.saveState();
                 }
             }.bind(this));
             
@@ -138,6 +205,7 @@
                 }
                 
                 this.updateOrderSummary();
+                this.saveState();
             }.bind(this));
             
             // המשך לתשלום
@@ -235,6 +303,13 @@
             e.preventDefault();
             const screenName = $(e.currentTarget).data('screen');
             
+            // אם מבטלים הזמנה (חוזרים לדאשבורד), ננקה את המצב
+            if (screenName === 'dashboard' && this.currentScreen === 'new-order') {
+                this.clearState();
+                this.orderItems = [];
+                this.selectedCustomer = null;
+            }
+            
             // אם עוברים למסך הזמנה חדשה, צריך לבחור לקוח (רק אם אין לקוח נבחר)
             if (screenName === 'new-order') {
                 if (!this.selectedCustomer) {
@@ -244,6 +319,7 @@
             }
             
             this.showScreen(screenName);
+            this.saveState();
         },
 
         searchCustomers: function(e) {
@@ -373,7 +449,83 @@
 
             // מעבר למסך יצירת הזמנה (ברירת מחדל: טאב קטגוריות)
             this.showScreen('new-order');
-            this.loadCategories();
+            this.loadCategories(0); // טעינת קטגוריות ראשיות
+            
+            // שמירת מצב
+            this.saveState();
+        },
+
+        restoreOrderState: function() {
+            // שחזור שם הלקוח
+            if (this.selectedCustomer && this.selectedCustomer.name) {
+                $('#selected-customer-name').text(this.selectedCustomer.name);
+                $('#checkout-customer-name').text(this.selectedCustomer.name);
+                $('#success-customer-name').text(this.selectedCustomer.name);
+            }
+            
+            // אם אנחנו במסך new-order, נפתח את טאב קטגוריות ונטען אותן
+            if (this.currentScreen === 'new-order') {
+                $('.kfir-tab-btn[data-tab="categories"]').addClass('active');
+                $('.kfir-tab-btn').not('[data-tab="categories"]').removeClass('active');
+                $('#categories-panel').show();
+                $('#search-panel').hide();
+                $('#purchased-panel').hide();
+                this.loadCategories(0);
+            }
+            
+            // שחזור מוצרים
+            if (this.orderItems && this.orderItems.length > 0) {
+                this.restoreOrderItems();
+            }
+        },
+
+        restoreOrderItems: function() {
+            // ניקוי רשימת המוצרים הנוכחית
+            $('#all-products-list').empty();
+            $('#purchased-products-list').empty();
+            
+            // שחזור כל מוצר
+            const promises = this.orderItems.map((item) => {
+                return new Promise((resolve) => {
+                    $.ajax({
+                        url: kfirAgentData.ajaxurl,
+                        type: 'GET',
+                        data: {
+                            action: 'kfir_agent_get_product_details',
+                            nonce: kfirAgentData.nonce,
+                            product_id: item.id,
+                            customer_id: this.selectedCustomer ? this.selectedCustomer.id : 0
+                        },
+                        success: (response) => {
+                            if (response.success && response.data) {
+                                const product = response.data;
+                                const $item = this.createProductItem({
+                                    id: product.id,
+                                    name: product.name || item.name,
+                                    sku: product.sku,
+                                    price: product.price,
+                                    custom_price: product.custom_price,
+                                    image_url: product.image_url || ''
+                                }, false);
+                                
+                                // הגדרת כמות
+                                $item.find('.product-quantity').val(item.quantity || 0);
+                                
+                                $('#all-products-list').append($item);
+                            }
+                            resolve();
+                        },
+                        error: () => {
+                            resolve();
+                        }
+                    });
+                });
+            });
+            
+            // אחרי שכל המוצרים נטענו, נעדכן את הסיכום
+            Promise.all(promises).then(() => {
+                this.updateOrderSummary();
+            });
         },
 
         loadPurchasedProducts: function(customerId) {
@@ -480,7 +632,7 @@
             
             if (tab === 'categories') {
                 $('#categories-panel').show();
-                this.loadCategories();
+                this.loadCategories(0); // טעינת קטגוריות ראשיות
             } else if (tab === 'search') {
                 $('#search-panel').show();
             } else if (tab === 'purchased') {
@@ -495,41 +647,68 @@
             this.scrollToTop();
         },
 
-        loadCategories: function() {
+        loadCategories: function(parentId = 0) {
             const $container = $('#categories-list');
-            $container.empty().html('<div class="kfir-loading">טוען קטגוריות...</div>');
+            $container.empty();
+            this.showLoader('#categories-list');
+            
+            // הסתרת מוצרים אם יש
+            $('#category-products-wrap').hide();
+            
             $.ajax({
                 url: kfirAgentData.ajaxurl,
                 type: 'GET',
                 data: {
                     action: 'kfir_agent_get_categories',
-                    nonce: kfirAgentData.nonce
+                    nonce: kfirAgentData.nonce,
+                    parent_id: parentId
                 },
                 success: (response) => {
+                    this.hideLoader();
                     if (response.success && response.data.categories) {
-                        this.displayCategories(response.data.categories);
+                        this.displayCategories(response.data.categories, response.data.parent_id, response.data.parent_name);
                     } else {
                         $container.html('<div class="kfir-empty-state">לא נמצאו קטגוריות</div>');
                     }
                 },
                 error: () => {
+                    this.hideLoader();
                     $container.html('<div class="kfir-empty-state">שגיאה בטעינת קטגוריות</div>');
                 }
             });
         },
 
-        displayCategories: function(categories) {
+        displayCategories: function(categories, parentId = 0, parentName = '') {
             const $container = $('#categories-list');
             $container.empty();
+            
+            // הוספת כפתור חזרה אם יש parent (במבנה זהה לקטגוריה רגילה)
+            if (parentId > 0 && parentName) {
+                const $backItem = $(`
+                    <div class="kfir-category-item kfir-category-back" data-back-button="1">
+                        <span class="kfir-category-name">⬅️ חזרה</span>
+                    </div>
+                `);
+                $backItem.on('click', () => {
+                    this.loadCategories(0);
+                });
+                $container.append($backItem);
+            }
+            
             if (!categories.length) {
-                $container.html('<div class="kfir-empty-state">לא נמצאו קטגוריות</div>');
+                $container.append('<div class="kfir-empty-state">לא נמצאו קטגוריות</div>');
                 return;
             }
+            
             categories.forEach((cat) => {
                 const $item = $(`
-                    <div class="kfir-category-item" data-category-id="${cat.id}" data-category-name="${(cat.name || '').replace(/"/g, '&quot;')}">
+                    <div class="kfir-category-item" 
+                         data-category-id="${cat.id}" 
+                         data-category-name="${(cat.name || '').replace(/"/g, '&quot;')}"
+                         data-has-children="${cat.has_children ? '1' : '0'}">
                         <span class="kfir-category-name">${cat.name}</span>
                         ${cat.count > 0 ? `<span class="kfir-category-count">(${cat.count})</span>` : ''}
+                        ${cat.has_children ? '<span class="kfir-category-has-children">📁</span>' : ''}
                     </div>
                 `);
                 $container.append($item);
@@ -538,11 +717,25 @@
 
         handleCategoryClick: function(e) {
             const $item = $(e.currentTarget);
+            
+            // דילוג על כפתור חזרה
+            if ($item.data('back-button') == 1) {
+                return;
+            }
+            
             const categoryId = $item.data('category-id');
             const categoryName = $item.data('category-name') || 'קטגוריה';
+            const hasChildren = $item.data('has-children') == 1;
+            
             $('.kfir-category-item').removeClass('active');
             $item.addClass('active');
-            this.loadCategoryProducts(categoryId, categoryName);
+            
+            // אם יש תת-קטגוריות, נטען אותן. אחרת נטען מוצרים
+            if (hasChildren) {
+                this.loadCategories(categoryId);
+            } else {
+                this.loadCategoryProducts(categoryId, categoryName);
+            }
         },
 
         loadCategoryProducts: function(categoryId, categoryName) {
@@ -550,7 +743,8 @@
             const $list = $('#category-products-list');
             const $title = $('#category-products-title');
             $title.text('מוצרים בקטגוריה: ' + categoryName);
-            $list.empty().html('<div class="kfir-loading">טוען מוצרים...</div>');
+            $list.empty();
+            this.showLoader('#category-products-list');
             $wrap.show();
             $.ajax({
                 url: kfirAgentData.ajaxurl,
@@ -562,6 +756,7 @@
                     customer_id: this.selectedCustomer ? this.selectedCustomer.id : 0
                 },
                 success: (response) => {
+                    this.hideLoader();
                     if (response.success && response.data.products) {
                         this.displayCategoryProducts(response.data.products);
                     } else {
@@ -569,6 +764,7 @@
                     }
                 },
                 error: () => {
+                    this.hideLoader();
                     $list.html('<div class="kfir-empty-state">שגיאה בטעינת מוצרים</div>');
                 }
             });
@@ -693,6 +889,7 @@
                         this.orderItems.push(item);
                         this.displayProductInOrder(item);
                         this.updateOrderSummary();
+                        this.saveState();
                     } else {
                         // אם יש שגיאה, נוסיף עם מחיר 0
                         const item = {
@@ -704,6 +901,7 @@
                         this.orderItems.push(item);
                         this.displayProductInOrder(item);
                         this.updateOrderSummary();
+                        this.saveState();
                     }
                 },
                 error: (xhr, status, error) => {
@@ -719,6 +917,7 @@
                     this.orderItems.push(item);
                     this.displayProductInOrder(item);
                     this.updateOrderSummary();
+                    this.saveState();
                 }
             });
         },
@@ -837,6 +1036,10 @@
             });
 
             $('#order-total').text(total.toFixed(2));
+            
+            // עדכון orderItems ושמירה
+            this.orderItems = selectedItems;
+            this.saveState();
         },
 
         proceedToCheckout: function() {
@@ -1057,6 +1260,8 @@
                         this.showScreen('order-success');
                         this.orderItems = [];
                         this.selectedCustomer = null;
+                        // ניקוי מצב שמור אחרי סיום הזמנה
+                        this.clearState();
                     } else {
                         this.showNotification(response.data?.message || 'שגיאה ביצירת הזמנה', 'error');
                     }

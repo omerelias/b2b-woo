@@ -8,7 +8,12 @@
 
         init: function() {
             this.bindEvents();
-            this.showScreen('dashboard');
+            // אם המשתמש לא מחובר, נציג את מסך ההתחברות
+            if (!kfirAgentData.is_logged_in) {
+                this.showScreen('login');
+            } else {
+                this.showScreen('dashboard');
+            }
         },
 
         bindEvents: function() {
@@ -1117,6 +1122,11 @@
 
     $(document).ready(function() {
         KfirAgent.init();
+        
+        // אם המשתמש התחבר בהצלחה דרך SMS auth, נטען מחדש את הדף
+        $(document).on('sms_auth_success', function() {
+            window.location.reload();
+        });
     });
 
 })(jQuery);

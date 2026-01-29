@@ -48,8 +48,9 @@ class KFIR_Custom_Pricing_Agent {
 	 * בדיקה אם המשתמש הנוכחי הוא סוכן או אדמין
 	 */
 	private function is_agent_page() {
+		// אם המשתמש לא מחובר, נאפשר גישה רק למסך התחברות
 		if ( ! is_user_logged_in() ) {
-			return false;
+			return true; // נאפשר גישה לממשק גם למשתמשים לא מחוברים (למסך התחברות)
 		}
 		
 		$user = wp_get_current_user();
@@ -78,10 +79,6 @@ class KFIR_Custom_Pricing_Agent {
 	 * טעינת קבצי CSS ו-JS
 	 */
 	public function enqueue_assets() {
-		if ( ! $this->is_agent_page() ) {
-			return;
-		}
-
 		// בדיקה אם יש shortcode בעמוד הנוכחי
 		global $post;
 		if ( ! $post || ! has_shortcode( $post->post_content, 'kfir_agent_interface' ) ) {
@@ -108,10 +105,17 @@ class KFIR_Custom_Pricing_Agent {
 			true
 		);
 
+		// טעינת סקריפטים וסגנונות של SMS auth אם המערכת פעילה
+		if ( class_exists( 'OC_SMS_Auth' ) && OC_SMS_Auth::is_active() ) {
+			$sms_auth = OC_SMS_Auth::get_instance();
+			$sms_auth->enqueue_scripts();
+		}
+
 		wp_localize_script( 'kfir-agent-js', 'kfirAgentData', [
 			'ajaxurl' => admin_url( 'admin-ajax.php' ),
 			'nonce' => wp_create_nonce( 'kfir_agent_nonce' ),
 			'placeholder_img' => wc_placeholder_img_src( 'thumbnail' ),
+			'is_logged_in' => is_user_logged_in(),
 			'strings' => [
 				'selectCustomer' => 'בחר לקוח',
 				'searchProducts' => 'חפש מוצרים...',
@@ -126,6 +130,35 @@ class KFIR_Custom_Pricing_Agent {
 	 * רינדור הממשק הראשי
 	 */
 	public function render_interface() {
+		// אם המשתמש לא מחובר, נציג רק את מסך ההתחברות
+		if ( ! is_user_logged_in() ) {
+			ob_start();
+			?>
+			<div class="kfir-agent-wrap kfir-agent-page">
+				<!-- מסך התחברות -->
+				<div class="kfir-screen" id="screen-login">
+					<div class="kfir-agent-card">
+						<h2>התחברות לממשק סוכנים</h2>
+						<?php
+						// הצגת טופס SMS auth
+						if ( class_exists( 'OC_SMS_Auth' ) && OC_SMS_Auth::is_active() ) {
+							$sms_auth = OC_SMS_Auth::get_instance();
+							$sms_auth->add_sms_login_option();
+						} else {
+							echo '<p>מערכת ההתחברות אינה פעילה כרגע.</p>';
+						}
+						?>
+						<div class="kfir-form-actions" style="margin-top: 20px;">
+							<a href="<?php echo esc_url( home_url( '/' ) ); ?>" class="kfir-btn-secondary">🏠 בחזרה לאתר</a>
+						</div>
+					</div>
+				</div>
+			</div>
+			<?php
+			return ob_get_clean();
+		}
+
+		// בדיקה אם המשתמש הוא סוכן או אדמין
 		if ( ! $this->is_agent_page() ) {
 			return '<div class="kfir-agent-error">אין לך הרשאה לגשת לממשק זה</div>';
 		}
@@ -144,6 +177,9 @@ class KFIR_Custom_Pricing_Agent {
 						<button class="kfir-btn-secondary" data-screen="new-customer">
 							👤 הוסף לקוח חדש
 						</button>
+						<a href="<?php echo esc_url( home_url( '/' ) ); ?>" class="kfir-btn-secondary">
+							🏠 בחזרה לאתר
+						</a>
 					</div>
 				</div>
 			</div>

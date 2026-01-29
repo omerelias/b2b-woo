@@ -116,28 +116,9 @@
             // המשך לתשלום
             $(document).on('click', '.proceed-checkout', this.proceedToCheckout.bind(this));
             
-            // טאבים: קטגוריות / מוצרים
+            // טאבים: קטגוריות / חיפוש מוצרים / מוצרים שנרכשו בעבר
             $(document).on('click', '.kfir-tab-btn', this.handleProductBrowseTab.bind(this));
             $(document).on('click', '.kfir-category-item', this.handleCategoryClick.bind(this));
-
-            // אקורדיון למוצרים שנרכשו בעבר
-            $(document).on('click', '#purchased-products-header', function(e) {
-                e.preventDefault();
-                const $header = $(e.currentTarget);
-                const $content = $('#purchased-products-list');
-                const $icon = $header.find('.accordion-icon');
-                
-                if ($content.is(':visible')) {
-                    $content.slideUp(300);
-                    $icon.text('▶');
-                    $header.removeClass('active');
-                } else {
-                    $content.slideDown(300);
-                    $icon.text('▼');
-                    $header.addClass('active');
-                    $content.addClass('show');
-                }
-            });
             
             // עריכת מחיר וכמות במסך סיכום
             $(document).on('change', '.edit-price, .edit-quantity', this.updateCheckoutTotal.bind(this));
@@ -201,6 +182,15 @@
             $('.kfir-screen').hide();
             $('#screen-' + screenName).show();
             this.currentScreen = screenName;
+            // גלילה למעלה במובייל/טאבלט
+            this.scrollToTop();
+        },
+
+        scrollToTop: function() {
+            // בדיקה אם זה מובייל או טאבלט
+            if (window.innerWidth <= 1024) {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
         },
 
         handleScreenChange: function(e) {
@@ -345,6 +335,7 @@
         },
 
         loadPurchasedProducts: function(customerId) {
+            const $container = $('#purchased-products-list');
             this.showLoader('#purchased-products-list');
 
             $.ajax({
@@ -359,22 +350,13 @@
                     this.hideLoader();
                     if (response.success && response.data.products.length > 0) {
                         this.displayPurchasedProducts(response.data.products);
-                        $('#purchased-products-section').show();
-                        // פתיחת האקורדיון אוטומטית
-                        const $header = $('#purchased-products-header');
-                        const $content = $('#purchased-products-list');
-                        const $icon = $header.find('.accordion-icon');
-                        $content.slideDown(300);
-                        $icon.text('▼');
-                        $header.addClass('active');
-                        $content.addClass('show');
                     } else {
-                        $('#purchased-products-section').hide();
+                        $container.html('<div class="kfir-empty-state">לא נמצאו מוצרים שנרכשו בעבר</div>');
                     }
                 },
                 error: () => {
                     this.hideLoader();
-                    $('#purchased-products-section').hide();
+                    $container.html('<div class="kfir-empty-state">שגיאה בטעינת מוצרים שנרכשו בעבר</div>');
                 }
             });
         },
@@ -448,14 +430,27 @@
             const tab = $(e.currentTarget).data('tab');
             $('.kfir-tab-btn').removeClass('active');
             $(e.currentTarget).addClass('active');
+            
+            // הסתרת כל הפאנלים
+            $('#categories-panel').hide();
+            $('#search-panel').hide();
+            $('#purchased-panel').hide();
+            
             if (tab === 'categories') {
-                $('#products-panel').hide();
                 $('#categories-panel').show();
                 this.loadCategories();
-            } else {
-                $('#categories-panel').hide();
-                $('#products-panel').show();
+            } else if (tab === 'search') {
+                $('#search-panel').show();
+            } else if (tab === 'purchased') {
+                $('#purchased-panel').show();
+                // אם יש לקוח נבחר, נטען את המוצרים שנרכשו בעבר
+                if (this.selectedCustomer && this.selectedCustomer.id) {
+                    this.loadPurchasedProducts(this.selectedCustomer.id);
+                }
             }
+            
+            // גלילה למעלה במובייל/טאבלט
+            this.scrollToTop();
         },
 
         loadCategories: function() {
@@ -877,6 +872,8 @@
             // הצגת מסך סיכום
             this.displayCheckoutItems();
             this.showScreen('checkout');
+            // גלילה למעלה במובייל/טאבלט
+            this.scrollToTop();
         },
 
         displayCheckoutItems: function() {

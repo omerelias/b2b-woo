@@ -177,9 +177,6 @@ class KFIR_Custom_Pricing_Agent {
 						<button class="kfir-btn-secondary" data-screen="new-customer">
 							👤 הוסף לקוח חדש
 						</button>
-						<a href="<?php echo esc_url( home_url( '/' ) ); ?>" class="kfir-btn-secondary">
-							🏠 בחזרה לאתר
-						</a>
 					</div>
 				</div>
 			</div>
@@ -251,15 +248,14 @@ class KFIR_Custom_Pricing_Agent {
 			<div class="kfir-screen" id="screen-new-order" style="display: none;">
 				<div class="kfir-agent-card">
 					<div class="order-header">
-						<div class="customer-info">
-							<strong>לקוח:</strong> <span id="selected-customer-name">-</span>
-						</div>
+						<span class="customer-info"><strong>לקוח:</strong> <span id="selected-customer-name">-</span></span>
 						<button class="cancel-order kfir-btn-secondary" data-screen="dashboard">❌ ביטול הזמנה</button>
 					</div>
 
 					<div class="kfir-product-browse-tabs">
 						<button type="button" class="kfir-tab-btn active" data-tab="categories">📁 קטגוריות</button>
-						<button type="button" class="kfir-tab-btn" data-tab="products">🛒 מוצרים</button>
+						<button type="button" class="kfir-tab-btn" data-tab="search">🔍 חיפוש מוצרים</button>
+						<button type="button" class="kfir-tab-btn" data-tab="purchased">📦 מוצרים שנרכשו בעבר</button>
 					</div>
 
 					<div id="categories-panel" class="kfir-tab-panel">
@@ -270,25 +266,22 @@ class KFIR_Custom_Pricing_Agent {
 						</div>
 					</div>
 
-					<div id="products-panel" class="kfir-tab-panel" style="display: none;">
-					<div class="kfir-form-group">
-						<label>חפש מוצרים</label>
-						<select id="product-search" class="kfir-select" data-placeholder="חפש מוצר או SKU..."></select>
-					</div>
+					<div id="search-panel" class="kfir-tab-panel" style="display: none;">
+						<div class="kfir-form-group">
+							<label>חפש מוצרים</label>
+							<select id="product-search" class="kfir-select" data-placeholder="חפש מוצר או SKU..."></select>
+						</div>
+						<div id="all-products-section" class="kfir-products-section">
+							<h3>כל המוצרים</h3>
+							<div id="all-products-list" class="kfir-products-list"></div>
+						</div>
+					</div><!-- #search-panel -->
 
-					<div id="purchased-products-section" class="kfir-products-section" style="display: none;">
-						<h3 class="accordion-header" id="purchased-products-header">
-							<span>מוצרים שנרכשו בעבר</span>
-							<span class="accordion-icon">▼</span>
-						</h3>
-						<div id="purchased-products-list" class="kfir-products-list accordion-content"></div>
-					</div>
-
-					<div id="all-products-section" class="kfir-products-section">
-						<h3>כל המוצרים</h3>
-						<div id="all-products-list" class="kfir-products-list"></div>
-					</div>
-					</div><!-- #products-panel -->
+					<div id="purchased-panel" class="kfir-tab-panel" style="display: none;">
+						<div id="purchased-products-section" class="kfir-products-section">
+							<div id="purchased-products-list" class="kfir-products-list"></div>
+						</div>
+					</div><!-- #purchased-panel -->
 
 					<div class="order-summary">
 						<div class="total">סה"כ: ₪<span id="order-total">0.00</span></div>

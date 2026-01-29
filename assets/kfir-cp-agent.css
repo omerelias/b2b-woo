@@ -240,10 +240,21 @@
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
+	gap: 15px;
 	margin-bottom: 30px;
 	padding: 20px;
 	background: linear-gradient(135deg, #f8f9fa, #e9ecef);
 	border-radius: 12px;
+	flex-wrap: wrap;
+}
+
+.order-header .customer-info {
+	flex: 1;
+	min-width: 0;
+}
+
+.order-header .cancel-order {
+	flex-shrink: 0;
 }
 
 .customer-info {
@@ -601,6 +612,7 @@
 	padding: 20px;
 	background: linear-gradient(135deg, #f8f9fa, #e9ecef);
 	border-radius: 12px;
+	position: relative;
 }
 
 .order-summary .total {
@@ -898,9 +910,28 @@
 	}
 	
 	.order-header {
-		flex-direction: column;
+		flex-direction: row;
 		gap: 15px;
-		text-align: center;
+		text-align: right;
+	}
+	
+	.order-header .customer-info {
+		flex: 1;
+		min-width: 0;
+	}
+	
+	.order-header .cancel-order {
+		flex-shrink: 0;
+	}
+	
+	/* Sticky order summary on mobile/tablet */
+	.order-summary {
+		position: sticky;
+		bottom: 0;
+		z-index: 100;
+		margin-top: 20px;
+		margin-bottom: 0;
+		box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
 	}
 	
 	.order-summary,

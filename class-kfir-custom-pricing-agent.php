@@ -542,7 +542,6 @@ class KFIR_Custom_Pricing_Agent {
 
 		// קבלת ID האתר הנוכחי במולטיסייט
 		$current_blog_id = is_multisite() ? get_current_blog_id() : null;
-
 		// בניית meta_query בסיסי
 		$base_meta_query = [];
 		
@@ -562,9 +561,8 @@ class KFIR_Custom_Pricing_Agent {
 				],
 			];
 		}
-
 		$args = [
-			'role' => 'customer',
+//			'role' => 'customer',
 			'search' => '*' . $search_term . '*',
 			'search_columns' => [ 'user_login', 'user_email', 'display_name' ],
 			'number' => 20,
@@ -574,7 +572,8 @@ class KFIR_Custom_Pricing_Agent {
 		if ( ! empty( $base_meta_query ) ) {
 			$args['meta_query'] = $base_meta_query;
 		}
-
+//        var_dump($args);
+//        die;
 		$users = get_users( $args );
 
 		// חיפוש גם לפי meta (טלפון, אימייל, שם עסק, ח.פ)
@@ -607,7 +606,18 @@ class KFIR_Custom_Pricing_Agent {
 					'value' => $search_term,
 					'compare' => 'LIKE',
 				],
-			],
+                [
+                    'key' => 'billing_first_name',
+                    'value' => $search_term,
+                    'compare' => 'LIKE',
+                ],
+                [
+                    'key' => 'billing_last_name',
+                    'value' => $search_term,
+                    'compare' => 'LIKE',
+                ],
+
+            ],
 		];
 
 		// הוספת סינון לפי אתר אם זה מולטיסייט
@@ -631,7 +641,8 @@ class KFIR_Custom_Pricing_Agent {
 			'meta_query' => $meta_query,
 			'number' => 20,
 		] );
-
+//        var_dump($meta_query);
+//        die;
 		// איחוד התוצאות
 		$all_users = array_merge( $users, $meta_users );
 		$unique_users = [];

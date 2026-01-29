@@ -269,6 +269,15 @@
             // מחיקת פריט
             $(document).on('click', '.remove-item', this.removeItem.bind(this));
             
+            // Lightbox לתמונות מוצרים
+            $(document).on('click', '.product-image img.kfir-product-image-clickable', this.openImageLightbox.bind(this));
+            $(document).on('click', '.kfir-lightbox-overlay, .kfir-lightbox-close', this.closeImageLightbox.bind(this));
+            $(document).on('keydown', (e) => {
+                if (e.key === 'Escape' && $('.kfir-lightbox-overlay').is(':visible')) {
+                    this.closeImageLightbox(e);
+                }
+            });
+            
             // סיום הזמנה
             $(document).on('click', '.finalize-order', this.finalizeOrder.bind(this));
         },
@@ -956,7 +965,7 @@
             return $(`
                 <div class="product-item" data-product-id="${productId}">
                     <div class="product-image">
-                        <img src="${imageUrl || kfirAgentData.placeholder_img}" alt="${productName}" onerror="this.onerror=null; this.src='${kfirAgentData.placeholder_img || ''}'">
+                        <img src="${imageUrl || kfirAgentData.placeholder_img}" alt="${productName}" class="kfir-product-image-clickable" onerror="this.onerror=null; this.src='${kfirAgentData.placeholder_img || ''}'">
                     </div>
                     <div class="product-details">
                         <strong>${productName}</strong>
@@ -1191,9 +1200,14 @@
             // הסרה מהרשימה
             this.orderItems = this.orderItems.filter(item => item.id != productId);
             
+            // עדכון גם ברשימת המוצרים במסך ההזמנה
+            $(`.product-item[data-product-id="${productId}"]`).find('.product-quantity').val(0).trigger('change');
+            
             $row.fadeOut(300, () => {
                 $row.remove();
                 this.updateCheckoutTotal();
+                // שמירת מצב מעודכן
+                this.saveState();
             });
         },
 
@@ -1361,6 +1375,26 @@
 
         hideLoader: function() {
             $('.kfir-loader').remove();
+        },
+
+        openImageLightbox: function(e) {
+            e.stopPropagation();
+            const imageSrc = $(e.target).attr('src');
+            const imageAlt = $(e.target).attr('alt') || '';
+            
+            if (!imageSrc || imageSrc === kfirAgentData.placeholder_img) {
+                return; // לא לפתוח lightbox לתמונת placeholder
+            }
+            
+            $('.kfir-lightbox-image').attr('src', imageSrc).attr('alt', imageAlt);
+            $('.kfir-lightbox-overlay').fadeIn(300);
+            $('body').css('overflow', 'hidden');
+        },
+
+        closeImageLightbox: function(e) {
+            e.stopPropagation();
+            $('.kfir-lightbox-overlay').fadeOut(300);
+            $('body').css('overflow', '');
         }
     };
 

@@ -166,6 +166,14 @@ class KFIR_Custom_Pricing_Agent {
 		ob_start();
 		?>
 		<div class="kfir-agent-wrap kfir-agent-page">
+			<!-- Lightbox לתמונות מוצרים -->
+			<div class="kfir-lightbox-overlay" style="display: none;">
+				<div class="kfir-lightbox-content">
+					<button class="kfir-lightbox-close">×</button>
+					<img class="kfir-lightbox-image" src="" alt="">
+				</div>
+			</div>
+
 			<!-- מסך 1: Dashboard -->
 			<div class="kfir-screen" id="screen-dashboard">
 				<div class="kfir-agent-dashboard">

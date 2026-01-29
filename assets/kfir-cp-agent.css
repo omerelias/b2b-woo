@@ -589,6 +589,15 @@
 	object-fit: cover;
 }
 
+.product-item .product-image img.kfir-product-image-clickable {
+	cursor: pointer;
+	transition: opacity 0.2s ease;
+}
+
+.product-item .product-image img.kfir-product-image-clickable:hover {
+	opacity: 0.8;
+}
+
 .quantity-controls {
 	display: flex;
 	align-items: center;
@@ -1157,6 +1166,61 @@
 	.kfir-spinner {
 		animation: none !important;
 	}
+}
+
+/* Lightbox for product images */
+.kfir-lightbox-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(0, 0, 0, 0.9);
+	z-index: 10000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+}
+
+.kfir-lightbox-content {
+	position: relative;
+	max-width: 90%;
+	max-height: 90%;
+	cursor: default;
+}
+
+.kfir-lightbox-image {
+	max-width: 100%;
+	max-height: 90vh;
+	object-fit: contain;
+	border-radius: 8px;
+	box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.kfir-lightbox-close {
+	position: absolute;
+	top: -40px;
+	right: 0;
+	background: rgba(255, 255, 255, 0.9);
+	border: none;
+	border-radius: 50%;
+	width: 40px;
+	height: 40px;
+	font-size: 30px;
+	line-height: 1;
+	color: #333;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: all 0.2s ease;
+	z-index: 10001;
+}
+
+.kfir-lightbox-close:hover {
+	background: #fff;
+	transform: scale(1.1);
 }
 
 /* Hide whatsapp-text on agent pages */

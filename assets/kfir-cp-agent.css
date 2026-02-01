@@ -172,6 +172,19 @@
 	margin-top: 20px;
 }
 
+/* במובייל - כפתורים אחד מעל השני */
+@media (max-width: 768px) {
+	.kfir-form-actions {
+		flex-direction: column;
+		width: 100%;
+	}
+	
+	.kfir-form-actions .kfir-btn-primary,
+	.kfir-form-actions .kfir-btn-secondary {
+		width: 100%;
+	}
+}
+
 /* Search */
 .kfir-search-input {
 	width: 100%;
@@ -337,6 +350,15 @@
 	background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
 	color: #fff;
 	box-shadow: 0 2px 10px rgba(59, 130, 246, 0.3);
+}
+
+/* הסתרת אייקונים בטאבים במובייל */
+@media (max-width: 768px) {
+	.kfir-product-browse-tabs .kfir-tab-btn {
+		font-size: 0.9rem;
+	}
+	
+	/* הסתרת האייקונים (אמוג'ים) במובייל - נעשה ב-JavaScript */
 }
 
 .kfir-tab-panel {

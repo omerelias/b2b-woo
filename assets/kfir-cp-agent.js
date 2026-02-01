@@ -81,6 +81,12 @@
         init: function() {
             this.bindEvents();
             
+            // הסתרת אייקונים בטאבים במובייל
+            this.hideTabIconsOnMobile();
+            $(window).on('resize', () => {
+                this.hideTabIconsOnMobile();
+            });
+            
             // טיפול בכפתור "הקודם" של הדפדפן
             window.addEventListener('popstate', (e) => {
                 if (e.state && e.state.screen) {
@@ -135,6 +141,32 @@
                     // טעינת קטגוריות
                     this.loadCategories(0);
                 }
+            }
+        },
+        
+        hideTabIconsOnMobile: function() {
+            if (window.innerWidth <= 768) {
+                // הסתרת אייקונים במובייל
+                $('.kfir-product-browse-tabs .kfir-tab-btn').each(function() {
+                    const $btn = $(this);
+                    const text = $btn.text();
+                    // הסרת האייקון הראשון (אמוג'י) מהטקסט
+                    const textWithoutIcon = text.replace(/^[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u, '').trim();
+                    if (textWithoutIcon !== text) {
+                        $btn.data('original-text', text);
+                        $btn.text(textWithoutIcon);
+                    }
+                });
+            } else {
+                // שחזור האייקונים בדסקטופ
+                $('.kfir-product-browse-tabs .kfir-tab-btn').each(function() {
+                    const $btn = $(this);
+                    const originalText = $btn.data('original-text');
+                    if (originalText) {
+                        $btn.text(originalText);
+                        $btn.removeData('original-text');
+                    }
+                });
             }
         },
 
@@ -353,8 +385,11 @@
             e.preventDefault();
             const screenName = $(e.currentTarget).data('screen');
             
-            // אם מבטלים הזמנה (חוזרים לדאשבורד), ננקה את כל הסטייט
+            // אם מבטלים הזמנה (חוזרים לדאשבורד), נציג התראה לפני ביטול
             if (screenName === 'dashboard' && (this.currentScreen === 'new-order' || this.currentScreen === 'checkout')) {
+                if (!confirm('האם אתה בטוח שברצונך לבטל את ההזמנה? כל הנתונים יימחקו.')) {
+                    return; // המשתמש ביטל את הפעולה
+                }
                 this.resetOrder();
             }
             
@@ -1292,7 +1327,7 @@
                 total += itemTotal;
                 
                 // עדכון orderItems עם המחיר והכמות המעודכנים
-                const existingItem = this.orderItems.find(item => item.id == productId);
+                const existingItem = this.orderItems.find(item => item.id == productId); 
                 if (existingItem) {
                     existingItem.price = price;
                     existingItem.quantity = quantity;
@@ -1310,6 +1345,11 @@
         },
 
         removeItem: function(e) {
+            // הצגת התראה לפני מחיקה
+            if (!confirm('האם אתה בטוח שברצונך למחוק את המוצר מההזמנה?')) {
+                return; // המשתמש ביטל את הפעולה
+            }
+            
             const $row = $(e.currentTarget).closest('tr');
             const productId = $row.data('product-id');
             

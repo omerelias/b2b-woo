@@ -5,6 +5,7 @@
         currentScreen: 'dashboard',
         selectedCustomer: null,
         orderItems: [],
+        currentOrderId: null,
 
         // שמירה וטעינה מ-sessionStorage
         saveState: function() {
@@ -53,6 +54,7 @@
             // ניקוי כל הסטייט
             this.orderItems = [];
             this.selectedCustomer = null;
+            this.currentOrderId = null;
             this.clearState();
             
             // ניקוי ה-DOM
@@ -360,6 +362,9 @@
             
             // סיום הזמנה
             $(document).on('click', '.finalize-order', this.finalizeOrder.bind(this));
+            
+            // יצירת מסמכי iCount
+            $(document).on('click', '.icount-create-btn', this.createIcountDocument.bind(this));
         },
 
         showScreen: function(screenName, skipHistory) {
@@ -1573,11 +1578,44 @@
                     this.hideLoader();
                     $('.finalize-order').prop('disabled', false).text('✅ סיים הזמנה');
                     if (response.success) {
+                        // שמירת order_id
+                        this.currentOrderId = response.data.order_id;
+                        
                         $('#order-number').text('#' + response.data.order_number);
                         $('#success-order-total').text('₪' + parseFloat(response.data.total).toFixed(2));
+                        
                         this.showScreen('order-success');
-                        // ניקוי כל הסטייט אחרי סיום הזמנה
-                        this.resetOrder();
+                        
+                        // הצגת כפתורי iCount אם יש order_id
+                        if (this.currentOrderId) {
+                            $('#icount-documents-buttons').show();
+                        }
+                        
+                        // ניקוי כל הסטייט אחרי סיום הזמנה (אבל לא currentOrderId - נצטרך אותו לכפתורי iCount)
+                        this.orderItems = [];
+                        this.selectedCustomer = null;
+                        this.clearState();
+                        
+                        // ניקוי ה-DOM
+                        $('#all-products-list').empty();
+                        $('#purchased-products-list').empty();
+                        $('#category-products-list').empty();
+                        $('#checkout-items').empty();
+                        $('#selected-customer-name').text('-');
+                        $('#checkout-customer-name').text('-');
+                        $('#order-total').text('0.00');
+                        $('#checkout-total').text('0.00');
+                        
+                        // איפוס כמות כל המוצרים
+                        $('.product-item .product-quantity').val(0);
+                        
+                        // חזרה לטאב קטגוריות
+                        $('.kfir-tab-btn[data-tab="categories"]').addClass('active');
+                        $('.kfir-tab-btn').not('[data-tab="categories"]').removeClass('active');
+                        $('#categories-panel').show();
+                        $('#search-panel').hide();
+                        $('#purchased-panel').hide();
+                        $('#category-products-wrap').hide();
                     } else {
                         this.showNotification(response.data?.message || 'שגיאה ביצירת הזמנה', 'error');
                     }
@@ -1737,6 +1775,72 @@
             $lightboxImg.attr('src', imageSrc).attr('alt', productName);
             $('.kfir-lightbox-overlay').fadeIn(300);
             $('body').css('overflow', 'hidden');
+        },
+
+        createIcountDocument: function(e) {
+            if (!this.currentOrderId) {
+                this.showNotification('מספר הזמנה לא נמצא', 'error');
+                return;
+            }
+
+            const $btn = $(e.currentTarget);
+            const docType = $btn.data('doc-type');
+            const originalText = $btn.html();
+            
+            // שמות מסמכים בעברית
+            const docNames = {
+                'invoice': 'חשבונית',
+                'receipt': 'קבלה',
+                'quote': 'הצעת מחיר',
+                'invrec': 'חשבונית מס קבלה'
+            };
+            
+            const docName = docNames[docType] || 'מסמך';
+            
+            // הצגת טעינה
+            $btn.prop('disabled', true).html('יוצר ' + docName + '...');
+            $('#icount-documents-status').html('');
+
+            $.ajax({
+                url: kfirAgentData.ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'kfir_agent_create_icount_document',
+                    nonce: kfirAgentData.nonce,
+                    order_id: this.currentOrderId,
+                    doc_type: docType
+                },
+                success: (response) => {
+                    $btn.prop('disabled', false).html(originalText);
+                    
+                    if (response.success) {
+                        let statusHtml = '<div style="color: #28a745; font-weight: 600; padding: 10px; background: #d4edda; border-radius: 4px; margin-top: 10px;">';
+                        statusHtml += '✅ ' + response.data.message;
+                        
+                        if (response.data.doc_url) {
+                            statusHtml += '<br/><a href="' + response.data.doc_url + '" target="_blank" style="color: #155724; text-decoration: underline; margin-top: 5px; display: inline-block;">צפה ב' + docName + '</a>';
+                        }
+                        
+                        statusHtml += '</div>';
+                        $('#icount-documents-status').html(statusHtml);
+                        this.showNotification(response.data.message, 'success');
+                    } else {
+                        $('#icount-documents-status').html(
+                            '<div style="color: #dc3545; font-weight: 600; padding: 10px; background: #f8d7da; border-radius: 4px; margin-top: 10px;">❌ ' + 
+                            (response.data?.message || 'שגיאה ביצירת המסמך') + 
+                            '</div>'
+                        );
+                        this.showNotification(response.data?.message || 'שגיאה ביצירת המסמך', 'error');
+                    }
+                },
+                error: () => {
+                    $btn.prop('disabled', false).html(originalText);
+                    $('#icount-documents-status').html(
+                        '<div style="color: #dc3545; font-weight: 600; padding: 10px; background: #f8d7da; border-radius: 4px; margin-top: 10px;">❌ שגיאה ביצירת המסמך</div>'
+                    );
+                    this.showNotification('שגיאה ביצירת המסמך', 'error');
+                }
+            });
         }
     };
 

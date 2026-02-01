@@ -27,6 +27,7 @@ class KFIR_Custom_Pricing_Agent {
 		add_action( 'wp_ajax_kfir_agent_calculate_total', [ $this, 'ajax_calculate_total' ] );
 		add_action( 'wp_ajax_kfir_agent_create_order', [ $this, 'ajax_create_order' ] );
 		add_action( 'wp_ajax_kfir_agent_get_shipping_cost', [ $this, 'ajax_get_shipping_cost' ] );
+		add_action( 'wp_ajax_kfir_agent_create_icount_document', [ $this, 'ajax_create_icount_document' ] );
 	}
 
 	/**
@@ -465,9 +466,30 @@ class KFIR_Custom_Pricing_Agent {
 				<div class="kfir-agent-card order-success">
 					<h2>✅ ההזמנה הושלמה בהצלחה!</h2>
 					<p>מספר הזמנה: <strong id="order-number">-</strong></p>
-					<p>לקוח: <strong id="success-customer-name">-</strong></p>
+					<p><strong id="success-customer-name">-</strong></p>
 					<p>סה"כ: <strong id="success-order-total">₪0.00</strong></p>
-					<button class="back-to-dashboard kfir-btn-primary" data-screen="dashboard">חזור למסך ראשי</button>
+					
+					<!-- כפתורי יצירת מסמכי iCount -->
+					<div class="icount-documents-buttons" id="icount-documents-buttons" style="margin-top: 20px; display: none;">
+						<h3 style="margin-bottom: 15px;">יצירת מסמכים</h3>
+						<div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
+							<button class="kfir-btn-primary icount-create-btn" data-doc-type="invoice" style="margin: 5px;">
+								📄 יצירת חשבונית
+							</button>
+							<button class="kfir-btn-primary icount-create-btn" data-doc-type="receipt" style="margin: 5px;">
+								🧾 יצירת קבלה
+							</button>
+							<button class="kfir-btn-primary icount-create-btn" data-doc-type="quote" style="margin: 5px;">
+								📋 יצירת הצעת מחיר
+							</button>
+							<button class="kfir-btn-primary icount-create-btn" data-doc-type="invrec" style="margin: 5px;">
+								📑 יצירת חשבונית מס קבלה
+							</button>
+						</div>
+						<div id="icount-documents-status" style="margin-top: 15px;"></div>
+					</div>
+					
+					<button class="back-to-dashboard kfir-btn-primary" data-screen="dashboard" style="margin-top: 20px;">חזור למסך ראשי</button>
 				</div>
 			</div>
 		</div>
@@ -1352,6 +1374,55 @@ class KFIR_Custom_Pricing_Agent {
 		}
 
 		wp_send_json_success( [ 'cost' => floatval( $cost ) ] );
+	}
+
+	/**
+	 * AJAX: יצירת מסמך iCount
+	 */
+	public function ajax_create_icount_document() {
+		check_ajax_referer( 'kfir_agent_nonce', 'nonce' );
+		
+		if ( ! $this->is_agent_page() ) {
+			wp_send_json_error( [ 'message' => 'אין לך הרשאה' ] );
+		}
+
+		$order_id = absint( $_POST['order_id'] ?? 0 );
+		$doc_type = sanitize_text_field( $_POST['doc_type'] ?? 'invoice' );
+		
+		if ( ! $order_id ) {
+			wp_send_json_error( [ 'message' => 'לא נבחרה הזמנה' ] );
+		}
+
+		// בדיקה אם הפונקציה קיימת
+		if ( ! function_exists( 'icount_ms_create_document' ) ) {
+			wp_send_json_error( [ 'message' => 'תוסף iCount אינו פעיל' ] );
+		}
+
+		// יצירת המסמך
+		icount_ms_create_document( $order_id, $doc_type );
+
+		// קבלת פרטי המסמך שנוצר
+		$order = wc_get_order( $order_id );
+		if ( ! $order ) {
+			wp_send_json_error( [ 'message' => 'הזמנה לא נמצאה' ] );
+		}
+
+		$meta_key_id = '_icount_' . $doc_type . '_id';
+		$meta_key_url = '_icount_' . $doc_type . '_url';
+		
+		$doc_id = $order->get_meta( $meta_key_id );
+		$doc_url = $order->get_meta( $meta_key_url );
+
+		if ( $doc_id || $doc_url ) {
+			wp_send_json_success( [
+				'message' => 'המסמך נוצר בהצלחה',
+				'doc_id' => $doc_id,
+				'doc_url' => $doc_url,
+				'doc_type' => $doc_type,
+			] );
+		} else {
+			wp_send_json_error( [ 'message' => 'שגיאה ביצירת המסמך. בדוק את הערות ההזמנה לפרטים.' ] );
+		}
 	}
 }
 

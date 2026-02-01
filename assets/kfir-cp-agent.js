@@ -288,7 +288,14 @@
             $(document).on('click', '.kfir-category-item', this.handleCategoryClick.bind(this));
             
             // עריכת מחיר וכמות במסך סיכום
-            $(document).on('change', '.edit-price, .edit-quantity', this.updateCheckoutTotal.bind(this));
+            $(document).on('change', '.edit-price, .edit-quantity', function(e) {
+                console.log('🔵 [DEBUG] Event triggered on:', e.target.className, 'Value:', $(e.target).val());
+                console.log('🔵 [DEBUG] Event target:', e.target);
+                console.log('🔵 [DEBUG] Current screen:', this.currentScreen);
+                console.log('🔵 [DEBUG] Calling updateCheckoutTotal...');
+                this.updateCheckoutTotal();
+                console.log('🔵 [DEBUG] updateCheckoutTotal called');
+            }.bind(this));
             
             // שיטת משלוח - הצגת שדה דמי משלוח ועדכון מחיר אוטומטי
             $(document).on('change', 'input[name="shipping_method"]', function() {
@@ -1266,19 +1273,25 @@
         },
 
         displayCheckoutItems: function() {
+            console.log('🟣 [DEBUG] displayCheckoutItems STARTED');
+            console.log('🟣 [DEBUG] orderItems:', this.orderItems);
+            console.log('🟣 [DEBUG] Number of items:', this.orderItems ? this.orderItems.length : 0);
+            
             const $container = $('#checkout-items');
+            console.log('🟣 [DEBUG] Container exists:', $container.length > 0);
             $container.empty();
 
             if (!this.orderItems || this.orderItems.length === 0) {
+                console.warn('🟡 [DEBUG] No order items, showing empty state');
                 $container.html('<tr><td colspan="5" class="kfir-empty-state">אין פריטים בהזמנה</td></tr>');
                 return;
             }
 
             let total = 0;
 
-            this.orderItems.forEach((item) => {
+            this.orderItems.forEach((item, index) => {
                 if (!item || !item.id) {
-                    console.error('Invalid item:', item);
+                    console.error('🔴 [DEBUG] Invalid item at index', index, ':', item);
                     return;
                 }
 
@@ -1286,6 +1299,14 @@
                 const itemQuantity = parseInt(item.quantity) || 1;
                 const itemTotal = itemPrice * itemQuantity;
                 total += itemTotal;
+                
+                console.log(`🟣 [DEBUG] Item ${index}:`, {
+                    id: item.id,
+                    name: item.name,
+                    price: itemPrice,
+                    quantity: itemQuantity,
+                    itemTotal: itemTotal
+                });
 
                 const productImageUrl = item.image_url_full || item.image_url || '';
                 const $row = $(`
@@ -1306,24 +1327,131 @@
                     </tr>
                 `);
                 $container.append($row);
+                console.log(`🟣 [DEBUG] Added row for item ${item.id}`);
             });
 
-            $('#checkout-total').text(total.toFixed(2));
+            console.log('🟣 [DEBUG] Final total:', total);
+            const $checkoutTotal = $('#checkout-total');
+            console.log('🟣 [DEBUG] Checkout total element exists:', $checkoutTotal.length > 0);
+            if ($checkoutTotal.length > 0) {
+                $checkoutTotal.text(total.toFixed(2));
+                console.log('🟣 [DEBUG] Set checkout total to:', total.toFixed(2));
+            } else {
+                console.error('🔴 [DEBUG] ERROR: Checkout total element not found!');
+            }
+            
+            console.log('🟣 [DEBUG] displayCheckoutItems FINISHED');
         },
 
         updateCheckoutTotal: function() {
+            console.log('🟢 [DEBUG] updateCheckoutTotal STARTED');
+            console.log('🟢 [DEBUG] Current screen:', this.currentScreen);
+            console.log('🟢 [DEBUG] Number of rows:', $('#checkout-items tr[data-product-id]').length);
+            
             let total = 0;
             const updatedItems = [];
 
-            $('#checkout-items tr[data-product-id]').each(function() {
-                const $row = $(this);
-                const productId = parseInt($row.data('product-id'));
-                const price = parseFloat($row.find('.edit-price').val()) || 0;
-                const quantity = parseInt($row.find('.edit-quantity').val()) || 1;
-                const itemTotal = price * quantity;
-                const productImageUrl = $row.data('product-image') || '';
+            const $checkoutItems = $('#checkout-items');
+            console.log('🟢 [DEBUG] Checkout items container exists:', $checkoutItems.length > 0);
+            console.log('🟢 [DEBUG] Checkout items HTML:', $checkoutItems.html().substring(0, 200));
+            
+            // בדיקה אם יש rows בכלל
+            const $allRows = $checkoutItems.find('tr');
+            console.log('🟢 [DEBUG] Total rows in tbody:', $allRows.length);
+            const $rowsWithData = $checkoutItems.find('tr[data-product-id]');
+            console.log('🟢 [DEBUG] Rows with data-product-id:', $rowsWithData.length);
+            
+            // אם אין rows עם data-product-id, ננסה למצוא את כל ה-rows
+            const $rowsToProcess = $rowsWithData.length > 0 ? $rowsWithData : $allRows;
+            console.log('🟢 [DEBUG] Processing', $rowsToProcess.length, 'rows');
+            console.log('🟢 [DEBUG] Starting loop...');
+
+            // שימוש בלולאת for רגילה במקום each כדי לוודא שאנחנו עובדים עם ה-DOM elements הנכונים
+            for (let index = 0; index < $rowsToProcess.length; index++) {
+                try {
+                    console.log(`🟢 [DEBUG] === Processing row ${index} ===`);
+                    const rowElement = $rowsToProcess[index];
+                    const $row = $(rowElement);
+                    console.log(`🟢 [DEBUG] Row ${index} element exists:`, !!rowElement, 'jQuery length:', $row.length);
+                    // נשתמש ב-jQuery כדי לקבל את ה-HTML
+                    const rowHTML = rowElement && rowElement.outerHTML ? rowElement.outerHTML.substring(0, 300) : (rowElement ? 'Element exists but no outerHTML' : 'No row element');
+                    console.log(`🟢 [DEBUG] Row ${index} HTML:`, rowHTML);
                 
-                $row.find('.item-total').text('₪' + itemTotal.toFixed(2));
+                // שימוש ב-jQuery בלבד לקבלת data-product-id
+                const productIdAttrJQuery = $row.attr('data-product-id');
+                const productIdData = $row.data('product-id'); 
+                
+                console.log(`🟢 [DEBUG] Row ${index} data-product-id (attr):`, productIdAttrJQuery); 
+                console.log(`🟢 [DEBUG] Row ${index} data-product-id (data):`, productIdData);
+                 
+                // ניסיון לקבל את ה-product-id בכל דרך אפשרית
+                const productId = parseInt(productIdAttrJQuery) || parseInt(productIdData) || 0;
+                
+                // חיפוש ה-inputs בתוך ה-row
+                const $priceInput = $row.find('.edit-price');
+                const $quantityInput = $row.find('.edit-quantity');
+                
+                // בדיקה אם ה-inputs נמצאים ישירות ב-row או בתוך td
+                const rowHTMLFull = $row.length > 0 && $row[0].outerHTML ? $row[0].outerHTML.substring(0, 500) : 'No element or no outerHTML';
+                console.log(`🟢 [DEBUG] Row ${index} structure:`, {
+                    rowHTML: rowHTMLFull,
+                    hasTdChildren: $row.find('td').length,
+                    directInputs: $row.children('input').length,
+                    priceInputInRow: $row.find('.edit-price').length,
+                    quantityInputInRow: $row.find('.edit-quantity').length,
+                    allInputs: $row.find('input').length,
+                    allInputsHTML: $row.find('input').map(function() { 
+                        return this.outerHTML ? this.outerHTML : 'No outerHTML'; 
+                    }).get()
+                });
+                
+                const price = parseFloat($priceInput.val()) || 0;
+                const quantity = parseInt($quantityInput.val()) || 1;
+                const itemTotal = price * quantity;
+                const productImageUrl = $row.attr('data-product-image') || $row.data('product-image') || '';
+                
+                console.log(`🟢 [DEBUG] Row ${index}:`, {
+                    productIdAttrJQuery: productIdAttrJQuery,
+                    productIdData: productIdData,
+                    productId: productId,
+                    price: price,
+                    quantity: quantity,
+                    itemTotal: itemTotal,
+                    priceInputExists: $priceInput.length > 0,
+                    quantityInputExists: $quantityInput.length > 0,
+                    priceInputValue: $priceInput.val(),
+                    quantityInputValue: $quantityInput.val(),
+                    priceInputElement: $priceInput[0] && $priceInput[0].outerHTML ? $priceInput[0].outerHTML : ($priceInput[0] ? 'Element exists but no outerHTML' : 'Not found'),
+                    quantityInputElement: $quantityInput[0] && $quantityInput[0].outerHTML ? $quantityInput[0].outerHTML : ($quantityInput[0] ? 'Element exists but no outerHTML' : 'Not found'),
+                    rowChildren: $row.children().length,
+                    rowTdCount: $row.find('td').length
+                });
+                
+                const $itemTotalCell = $row.find('.item-total');
+                console.log(`🟢 [DEBUG] Item total cell search:`, {
+                    found: $itemTotalCell.length > 0,
+                    selector: '.item-total',
+                    allCells: $row.find('td').length,
+                    cellHTML: $row.find('td').map(function(i) { 
+                        return `TD ${i}: ${$(this).text().substring(0, 50)} (has class item-total: ${$(this).hasClass('item-total')})`; 
+                    }).get(),
+                    itemTotalCellHTML: $itemTotalCell.length > 0 && $itemTotalCell[0].outerHTML ? $itemTotalCell[0].outerHTML : ($itemTotalCell.length > 0 ? 'Element exists but no outerHTML' : 'Not found')
+                });
+                
+                if ($itemTotalCell.length > 0) {
+                    $itemTotalCell.text('₪' + itemTotal.toFixed(2));
+                    console.log(`🟢 [DEBUG] Updated item total cell to: ₪${itemTotal.toFixed(2)}`);
+                } else {
+                    console.error(`🔴 [DEBUG] ERROR: Item total cell not found for row ${index}`);
+                    // ננסה למצוא את התא הרביעי (סה"כ)
+                    const $fourthTd = $row.find('td').eq(3);
+                    if ($fourthTd.length > 0) {
+                        const fourthTdHTML = $fourthTd[0].outerHTML ? $fourthTd[0].outerHTML : 'Element exists but no outerHTML';
+                        console.log(`🟢 [DEBUG] Found fourth TD, updating it instead:`, fourthTdHTML);
+                        $fourthTd.text('₪' + itemTotal.toFixed(2));
+                    }
+                }
+                
                 total += itemTotal;
                 
                 // עדכון orderItems עם המחיר והכמות המעודכנים
@@ -1334,14 +1462,34 @@
                     if (productImageUrl) {
                         existingItem.image_url_full = productImageUrl;
                     }
+                    console.log(`🟢 [DEBUG] Updated orderItems for product ${productId}:`, existingItem);
+                } else {
+                    console.warn(`🟡 [DEBUG] WARNING: No existing item found for product ${productId}`);
                 }
-            }.bind(this));
+                console.log(`🟢 [DEBUG] === Finished processing row ${index} ===`);
+                } catch (error) {
+                    console.error(`🔴 [DEBUG] ERROR processing row ${index}:`, error);
+                    console.error(`🔴 [DEBUG] Error stack:`, error.stack);
+                }
+            }
 
             // הוספת דמי משלוח אם נבחרה שיטת משלוח
             const shippingCost = parseFloat($('#shipping-cost').val()) || 0;
             total += shippingCost;
-
-            $('#checkout-total').text(total.toFixed(2));
+            
+            console.log('🟢 [DEBUG] Final total:', total);
+            console.log('🟢 [DEBUG] Shipping cost:', shippingCost);
+            
+            const $checkoutTotal = $('#checkout-total');
+            console.log('🟢 [DEBUG] Checkout total element exists:', $checkoutTotal.length > 0);
+            if ($checkoutTotal.length > 0) {
+                $checkoutTotal.text(total.toFixed(2));
+                console.log('🟢 [DEBUG] Updated checkout total to:', total.toFixed(2));
+            } else {
+                console.error('🔴 [DEBUG] ERROR: Checkout total element not found!');
+            }
+            
+            console.log('🟢 [DEBUG] updateCheckoutTotal FINISHED');
         },
 
         removeItem: function(e) {

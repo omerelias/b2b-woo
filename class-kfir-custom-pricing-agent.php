@@ -463,7 +463,7 @@ class KFIR_Custom_Pricing_Agent {
 
 			<!-- מסך 6: הזמנה הושלמה -->
 			<div class="kfir-screen" id="screen-order-success" style="display: none;">
-				<div class="kfir-agent-card order-success">
+				<div class="kfir-agent-card order-success"> 
 					<h2>✅ ההזמנה הושלמה בהצלחה!</h2> 
 					<p>מספר הזמנה: <strong id="order-number">-</strong></p> 
 					<p><strong id="success-customer-name">-</strong></p>
@@ -906,9 +906,13 @@ class KFIR_Custom_Pricing_Agent {
 				$text = $prod->get_name();
 			}
 			
+			// קבלת SKU או ID אם אין SKU
+			$sku = $prod->get_sku();
+			$display_id = $sku ? $sku : $prod->get_id();
+			
 			$results[] = [
 				'id' => $prod->get_id(),
-				'text' => $text . '  #' . $prod->get_id(),
+				'text' => $text . '  #' . $display_id,
 			];
 		}
 

@@ -761,18 +761,40 @@
 }
 
 .order-items-table .remove-item {
-	background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+	background: none;
 	border: none;
-	border-radius: 8px;
-	padding: 8px 16px;
-	color: white;
+	padding: 0;
 	cursor: pointer;
 	transition: all 0.3s ease;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
 }
 
 .order-items-table .remove-item:hover {
-	transform: translateY(-2px);
-	box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+	transform: scale(1.1);
+	opacity: 0.8;
+}
+
+.order-items-table .remove-item svg {
+	display: block;
+}
+
+/* עיצוב עמודת פעולות - מרכוז וצמצום רוחב */
+.order-items-table th:last-child,
+.order-items-table td:last-child {
+	text-align: center;
+	width: 60px;
+	min-width: 60px;
+	max-width: 60px;
+	padding: 15px 5px;
+}
+
+.order-items-table td:last-child {
+	display: table-cell;
+	vertical-align: middle;
 }
 
 /* Payment Methods */
@@ -930,7 +952,7 @@
 	border-radius: 12px;
 	box-shadow: 0 8px 25px rgba(0,0,0,0.15);
 	z-index: 9999;
-	transform: translateX(100%);
+	transform: translateX(100%); 
 	transition: all 0.3s ease;
 	font-weight: 600;
 	font-size: 14px;

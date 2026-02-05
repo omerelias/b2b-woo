@@ -1271,7 +1271,12 @@
                         </td>
                         <td class="item-total">₪${itemTotal.toFixed(2)}</td>
                         <td>
-                            <button class="remove-item">🗑️</button>
+                            <button class="remove-item" type="button" aria-label="הסר מוצר">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="12" cy="12" r="12" fill="#dc3545"/>
+                                    <path d="M8 8L16 16M16 8L8 16" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+                                </svg>
+                            </button>
                         </td>
                     </tr>
                 `);

@@ -970,7 +970,7 @@
 	position: fixed;
 	top: 20px; 
 	right: 20px;
-	padding: 15px 25px;
+	padding: 15px 25px; 
 	border-radius: 12px;
 	box-shadow: 0 8px 25px rgba(0,0,0,0.15); 
 	z-index: 9999;
@@ -1052,17 +1052,22 @@
 	
 	.order-header {
 		flex-direction: row;
-		gap: 15px;
+		gap: 10px;
 		text-align: right;
+		padding: 15px;
+		margin-bottom: 20px;
 	}
 	
 	.order-header .customer-info {
 		flex: 1;
 		min-width: 0;
+		font-size: 16px;
 	}
 	
 	.order-header .cancel-order {
 		flex-shrink: 0;
+		font-size: 13px;
+		padding: 9px 14px;
 	}
 	
 	/* Order summary responsive adjustments */
@@ -1109,6 +1114,22 @@
 	}
 	
 	.checkout-header .back-to-order {
+		font-size: 12px;
+		padding: 8px 12px;
+		width: 50%;
+	}
+	
+	.order-header {
+		padding: 12px;
+		margin-bottom: 15px;
+		gap: 8px;
+	}
+	
+	.order-header .customer-info {
+		font-size: 14px;
+	}
+	
+	.order-header .cancel-order {
 		font-size: 12px;
 		padding: 8px 12px;
 		width: 50%;

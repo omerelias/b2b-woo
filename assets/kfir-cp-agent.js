@@ -457,31 +457,37 @@
             }
 
             results.forEach((customer) => {
-                const displayParts = [];
-                
-                // שם עסק
-                if (customer.business_name) {
-                    displayParts.push(`<strong>${customer.business_name}</strong>`);
+                // בניית תצוגה רב-שורתית:
+                // שם לקוח -> טלפון -> שם חברה -> ח.פ
+                const lines = [];
+
+                const customerName = (customer.name || '').trim();
+                const customerPhone = (customer.phone || '').trim();
+                const businessName = (customer.business_name || '').trim();
+                const vatId = (customer.vat_id || '').trim();
+
+                if (customerName) {
+                    lines.push(`<div class="customer-result-line customer-result-name"><strong>${customerName}</strong></div>`);
                 }
-                
-                // שם לקוח
-                if (customer.name) {
-                    displayParts.push(customer.name);
+
+                // טלפון במקום אימייל - מתחת לשם הלקוח
+                if (customerPhone) {
+                    lines.push(`<div class="customer-result-line customer-result-phone">📞 ${customerPhone}</div>`);
                 }
-                
-                // טלפון
-                if (customer.phone) {
-                    displayParts.push(`📞 ${customer.phone}`);
+
+                // שם חברה - מתחת לטלפון
+                if (businessName) {
+                    lines.push(`<div class="customer-result-line customer-result-business">${businessName}</div>`);
                 }
-                
-                // ח.פ / ע.מ
-                if (customer.vat_id) {
-                    displayParts.push(`ח.פ: ${customer.vat_id}`);
+
+                // ח.פ - מתחת לשם חברה
+                if (vatId) {
+                    lines.push(`<div class="customer-result-line customer-result-vat">ח.פ: ${vatId}</div>`);
                 }
-                
-                // אימייל
-                if (customer.email) {
-                    displayParts.push(`✉️ ${customer.email}`);
+
+                // fallback אם חסרים נתונים
+                if (lines.length === 0) {
+                    lines.push(`<div class="customer-result-line customer-result-fallback"><strong>לקוח #${customer.id}</strong></div>`);
                 }
                 
                 // קביעת שם תצוגה - שם עסק או שם לקוח
@@ -494,7 +500,7 @@
                          data-customer-business="${(customer.business_name || '').replace(/"/g, '&quot;')}" 
                          data-customer-fullname="${(customer.name || '').replace(/"/g, '&quot;')}">
                         <div class="customer-result-main">
-                            ${displayParts.join(' | ')}
+                            ${lines.join('')}
                         </div>
                     </div>
                 `);
@@ -729,10 +735,10 @@
         displayCategories: function(categories, parentId = 0, parentName = '') {
             const $container = $('#categories-list');
             $container.empty();
-            
+
             // הוספת כפתור חזרה אם יש parent (במבנה זהה לקטגוריה רגילה)
             if (parentId > 0 && parentName) {
-                const $backItem = $(`
+                const $backItem = $(` 
                     <div class="kfir-category-item kfir-category-back" data-back-button="1">
                         <span class="kfir-category-name">➡️ חזרה</span>
                     </div>

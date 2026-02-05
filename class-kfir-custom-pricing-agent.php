@@ -281,7 +281,6 @@ class KFIR_Custom_Pricing_Agent {
 							<select id="product-search" class="kfir-select" data-placeholder="חפש מוצר או מקט..."></select>
 						</div>
 						<div id="all-products-section" class="kfir-products-section">
-							<h3>כל המוצרים</h3>
 							<div id="all-products-list" class="kfir-products-list"></div>
 						</div>
 					</div><!-- #search-panel -->
@@ -467,7 +466,7 @@ class KFIR_Custom_Pricing_Agent {
 					<h2>✅ ההזמנה הושלמה בהצלחה!</h2> 
 					<p>מספר הזמנה: <strong id="order-number">-</strong></p> 
 					<p><strong id="success-customer-name">-</strong></p>
-<!--					<p>סה"כ: <strong id="success-order-total">₪0.00</strong></p>-->  
+<!--					<p>סה"כ: <strong id="success-order-total">₪0.00</strong></p>-->
 
 					<!-- כפתורי יצירת מסמכי iCount -->
 					<div class="icount-documents-buttons" id="icount-documents-buttons" style="margin-top: 20px; display: none;">

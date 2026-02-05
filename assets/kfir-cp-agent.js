@@ -294,6 +294,11 @@
                 this.updateCheckoutTotal();
             }.bind(this));
             
+            // בחירת כל הטקסט בשדה מחיר בעת לחיצה
+            $(document).on('focus', '.edit-price', function(e) {
+                $(this).select();
+            });
+            
             // שיטת משלוח - הצגת שדה דמי משלוח ועדכון מחיר אוטומטי
             $(document).on('change', 'input[name="shipping_method"]', function() {
                 const $selectedMethod = $(this);
@@ -730,7 +735,7 @@
                     $container.html('<div class="kfir-empty-state">שגיאה בטעינת קטגוריות</div>');
                 }
             });
-        },
+        }, 
 
         displayCategories: function(categories, parentId = 0, parentName = '') {
             const $container = $('#categories-list');

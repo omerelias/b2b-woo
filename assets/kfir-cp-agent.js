@@ -730,7 +730,7 @@
                         $container.html('<div class="kfir-empty-state">לא נמצאו קטגוריות</div>');
                     }
                 },
-                error: () => { 
+                error: () => {
                     this.hideLoader(); 
                     $container.html('<div class="kfir-empty-state">שגיאה בטעינת קטגוריות</div>');
                 }

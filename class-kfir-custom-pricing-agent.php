@@ -22,6 +22,7 @@ class KFIR_Custom_Pricing_Agent {
 		add_action( 'wp_ajax_kfir_agent_search_products', [ $this, 'ajax_search_products' ] );
 		add_action( 'wp_ajax_kfir_agent_get_categories', [ $this, 'ajax_get_categories' ] );
 		add_action( 'wp_ajax_kfir_agent_get_products_by_category', [ $this, 'ajax_get_products_by_category' ] );
+		add_action( 'wp_ajax_kfir_agent_get_product_variations', [ $this, 'ajax_get_product_variations' ] );
 		add_action( 'wp_ajax_kfir_agent_get_customer_orders', [ $this, 'ajax_get_customer_orders' ] );
 		add_action( 'wp_ajax_kfir_agent_get_product_details', [ $this, 'ajax_get_product_details' ] );
 		add_action( 'wp_ajax_kfir_agent_calculate_total', [ $this, 'ajax_calculate_total' ] );
@@ -1049,78 +1050,39 @@ class KFIR_Custom_Pricing_Agent {
 				continue;
 			}
 			
-			// אם זה מוצר variable, נטען את הוריאציות שלו (כל ההוריאציות שפורסמו)
+			// אם זה מוצר variable, נחזיר את המוצר הראשי עם flag שהוא variable
 			if ( $product->is_type( 'variable' ) ) {
+				$image_id = $product->get_image_id();
+				$image_url = $image_id ? wp_get_attachment_image_url( $image_id, 'thumbnail' ) : wc_placeholder_img_src( 'thumbnail' );
+				$image_url_full = $image_id ? wp_get_attachment_image_url( $image_id, 'full' ) : '';
+				
+				// מחיר מינימלי מהוריאציות
 				$variation_ids = $product->get_children();
+				$min_price = null;
 				foreach ( $variation_ids as $variation_id ) {
 					$variation = wc_get_product( $variation_id );
-					if ( ! $variation || $variation->get_status() !== 'publish' ) {
-						continue;
-					}
-					
-					$base_price = $variation->get_price();
-					$custom_price = null;
-					if ( $pricing && $customer_id ) {
-						$custom_price = $pricing->get_customer_price( $customer_id, $variation_id );
-					}
-					
-					// קבלת תמונה מהוריאציה או מהמוצר הראשי
-					$image_id = $variation->get_image_id() ?: $product->get_image_id();
-					$image_url = $image_id ? wp_get_attachment_image_url( $image_id, 'thumbnail' ) : wc_placeholder_img_src( 'thumbnail' );
-					$image_url_full = $image_id ? wp_get_attachment_image_url( $image_id, 'full' ) : '';
-					
-					// בניית שם הוריאציה עם תכונות
-					$variation_name = $product->get_name();
-					$variation_attributes = $variation->get_variation_attributes();
-					if ( ! empty( $variation_attributes ) ) {
-						$attr_names = [];
-						foreach ( $variation_attributes as $attr_name => $attr_value ) {
-							// הסרת pa_ מהתחלה של שם התכונה
-							$clean_attr_name = str_replace( [ 'pa_', 'attribute_' ], '', $attr_name );
-							$attr_label = wc_attribute_label( $clean_attr_name, $product );
-							
-							// decode של שם התכונה עצמו
-							$decoded_label = rawurldecode( $attr_label );
-							// אם עדיין יש encoding, ננסה שוב
-							if ( $decoded_label !== $attr_label && preg_match( '/%[0-9A-F]{2}/i', $decoded_label ) ) {
-								$decoded_label = rawurldecode( $decoded_label );
-							}
-							
-							// decode של הערך - ננסה כמה פעמים אם צריך
-							$decoded_value = rawurldecode( $attr_value );
-							// אם עדיין יש encoding, ננסה שוב
-							if ( $decoded_value !== $attr_value && preg_match( '/%[0-9A-F]{2}/i', $decoded_value ) ) {
-								$decoded_value = rawurldecode( $decoded_value );
-							}
-							
-							// אם זה taxonomy (pa_), ננסה לקבל את השם מהטרמינולוגיה
-							if ( strpos( $attr_name, 'pa_' ) === 0 ) {
-								$term = get_term_by( 'slug', $attr_value, $attr_name );
-								if ( $term && ! is_wp_error( $term ) ) {
-									$decoded_value = $term->name;
-								}
-							}
-							
-							// החלפת מקף לרווח
-							$decoded_value = str_replace( '-', ' ', $decoded_value );
-							
-							$attr_names[] = $decoded_label . ': ' . $decoded_value;
-						}
-						if ( ! empty( $attr_names ) ) {
-							$variation_name .= ' - ' . implode( ', ', $attr_names );
+					if ( $variation && $variation->get_status() === 'publish' ) {
+						$var_price = $variation->get_price();
+						if ( $min_price === null || $var_price < $min_price ) {
+							$min_price = $var_price;
 						}
 					}
-					
-					$products_data[] = [
-						'id'           => $variation_id,
-						'name'         => $variation_name,
-						'sku'          => $variation->get_sku(),
-						'price'        => $base_price ?: 0,
-						'custom_price' => $custom_price,
-						'image_url'    => $image_url ?: '',
-						'image_url_full' => $image_url_full ?: '',
-					];
 				}
+				
+				$products_data[] = [
+					'id'           => $product->get_id(),
+					'name'         => $product->get_name(),
+					'sku'          => $product->get_sku(),
+					'price'        => $min_price ?: 0,
+					'custom_price' => null,
+					'image_url'    => $image_url ?: '',
+					'image_url_full' => $image_url_full ?: '',
+					'is_variable'  => true,
+					'variations_count' => count( array_filter( $variation_ids, function( $vid ) {
+						$v = wc_get_product( $vid );
+						return $v && $v->get_status() === 'publish';
+					} ) ),
+				];
 			} else {
 				// מוצר רגיל (לא variable)
 				$base_price = $product->get_price();
@@ -1144,6 +1106,108 @@ class KFIR_Custom_Pricing_Agent {
 		}
 
 		wp_send_json_success( [ 'products' => $products_data ] );
+	}
+
+	/**
+	 * AJAX: קבלת הוריאציות של מוצר variable
+	 */
+	public function ajax_get_product_variations() {
+		check_ajax_referer( 'kfir_agent_nonce', 'nonce' );
+		
+		if ( ! $this->is_agent_page() ) {
+			wp_send_json_error( [ 'message' => 'אין לך הרשאה' ] );
+		}
+
+		$product_id = absint( $_GET['product_id'] ?? 0 );
+		$customer_id = absint( $_GET['customer_id'] ?? 0 );
+		if ( ! $product_id ) {
+			wp_send_json_error( [ 'message' => 'לא נבחר מוצר' ] );
+		}
+
+		$product = wc_get_product( $product_id );
+		if ( ! $product || ! $product->is_type( 'variable' ) ) {
+			wp_send_json_error( [ 'message' => 'מוצר לא נמצא או אינו variable' ] );
+		}
+
+		$variations_data = [];
+		$pricing = $customer_id ? new KFIR_Custom_Pricing() : null;
+		$variation_ids = $product->get_children();
+		
+		foreach ( $variation_ids as $variation_id ) {
+			$variation = wc_get_product( $variation_id );
+			if ( ! $variation || $variation->get_status() !== 'publish' ) {
+				continue;
+			}
+			
+			$base_price = $variation->get_price();
+			$custom_price = null;
+			if ( $pricing && $customer_id ) {
+				$custom_price = $pricing->get_customer_price( $customer_id, $variation_id );
+			}
+			
+			// קבלת תמונה מהוריאציה או מהמוצר הראשי
+			$image_id = $variation->get_image_id() ?: $product->get_image_id();
+			$image_url = $image_id ? wp_get_attachment_image_url( $image_id, 'thumbnail' ) : wc_placeholder_img_src( 'thumbnail' );
+			$image_url_full = $image_id ? wp_get_attachment_image_url( $image_id, 'full' ) : '';
+			
+			// בניית שם הוריאציה עם תכונות
+			$variation_name = $product->get_name();
+			$variation_attributes = $variation->get_variation_attributes();
+			if ( ! empty( $variation_attributes ) ) {
+				$attr_names = [];
+				foreach ( $variation_attributes as $attr_name => $attr_value ) {
+					// הסרת pa_ מהתחלה של שם התכונה
+					$clean_attr_name = str_replace( [ 'pa_', 'attribute_' ], '', $attr_name );
+					$attr_label = wc_attribute_label( $clean_attr_name, $product );
+					
+					// decode של שם התכונה עצמו
+					$decoded_label = rawurldecode( $attr_label );
+					// אם עדיין יש encoding, ננסה שוב
+					if ( $decoded_label !== $attr_label && preg_match( '/%[0-9A-F]{2}/i', $decoded_label ) ) {
+						$decoded_label = rawurldecode( $decoded_label );
+					}
+					
+					// decode של הערך - ננסה כמה פעמים אם צריך
+					$decoded_value = rawurldecode( $attr_value );
+					// אם עדיין יש encoding, ננסה שוב
+					if ( $decoded_value !== $attr_value && preg_match( '/%[0-9A-F]{2}/i', $decoded_value ) ) {
+						$decoded_value = rawurldecode( $decoded_value );
+					}
+					
+					// אם זה taxonomy (pa_), ננסה לקבל את השם מהטרמינולוגיה
+					if ( strpos( $attr_name, 'pa_' ) === 0 ) {
+						$term = get_term_by( 'slug', $attr_value, $attr_name );
+						if ( $term && ! is_wp_error( $term ) ) {
+							$decoded_value = $term->name;
+						}
+					}
+					
+					// החלפת מקף לרווח
+					$decoded_value = str_replace( '-', ' ', $decoded_value );
+					
+					$attr_names[] = $decoded_label . ': ' . $decoded_value;
+				}
+				if ( ! empty( $attr_names ) ) {
+					$variation_name .= ' - ' . implode( ', ', $attr_names );
+				}
+			}
+			
+			$variations_data[] = [
+				'id'           => $variation_id,
+				'name'         => $variation_name,
+				'sku'          => $variation->get_sku(),
+				'price'        => $base_price ?: 0,
+				'custom_price' => $custom_price,
+				'image_url'    => $image_url ?: '',
+				'image_url_full' => $image_url_full ?: '',
+			];
+		}
+
+		wp_send_json_success( [ 
+			'variations' => $variations_data,
+			'product_name' => $product->get_name(),
+			'product_id' => $product_id,
+		] );
 	}
 
 	/**

@@ -432,6 +432,25 @@
 	box-shadow: 0 2px 12px rgba(59, 130, 246, 0.2);
 }
 
+/* כפתור חזרה לקטגוריה - כמו ביטול הזמנה */
+.kfir-category-back {
+	background: linear-gradient(135deg, #6c757d, #495057) !important;
+	border-color: #495057 !important;
+	color: white !important;
+}
+
+.kfir-category-back .kfir-category-name {
+	color: white !important;
+	font-weight: 600;
+}
+
+.kfir-category-back:hover {
+	background: linear-gradient(135deg, #5a6268, #343a40) !important;
+	border-color: #343a40 !important;
+	transform: translateY(-2px);
+	box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+}
+
 .kfir-category-name {
 	font-weight: 600;
 	color: #1e293b;

@@ -257,14 +257,14 @@ class KFIR_Custom_Pricing_Agent {
 			<div class="kfir-screen" id="screen-new-order" style="display: none;">
 				<div class="kfir-agent-card">
 					<div class="order-header">
-						<span class="customer-info"><strong>לקוח:</strong> <span id="selected-customer-name">-</span></span>
+						<span class="customer-info"><strong></strong> <span id="selected-customer-name">-</span></span>
 						<button class="cancel-order kfir-btn-secondary" data-screen="dashboard">❌ ביטול הזמנה</button>
 					</div>
 
 					<div class="kfir-product-browse-tabs">
-						<button type="button" class="kfir-tab-btn active" data-tab="categories">📁 קטגוריות</button>
-						<button type="button" class="kfir-tab-btn" data-tab="search">🔍 חיפוש מוצרים</button>
-						<button type="button" class="kfir-tab-btn" data-tab="purchased">📦 מוצרים שנרכשו בעבר</button>
+						<button type="button" class="kfir-tab-btn active" data-tab="categories">קטגוריות</button>
+						<button type="button" class="kfir-tab-btn" data-tab="search">חיפוש</button>
+						<button type="button" class="kfir-tab-btn" data-tab="purchased">נרכשו בעבר</button>
 					</div>
 
 					<div id="categories-panel" class="kfir-tab-panel">
@@ -467,7 +467,7 @@ class KFIR_Custom_Pricing_Agent {
 					<h2>✅ ההזמנה הושלמה בהצלחה!</h2>
 					<p>מספר הזמנה: <strong id="order-number">-</strong></p>
 					<p><strong id="success-customer-name">-</strong></p>
-					<p>סה"כ: <strong id="success-order-total">₪0.00</strong></p>
+<!--					<p>סה"כ: <strong id="success-order-total">₪0.00</strong></p>-->
 					
 					<!-- כפתורי יצירת מסמכי iCount -->
 					<div class="icount-documents-buttons" id="icount-documents-buttons" style="margin-top: 20px; display: none;">
@@ -490,6 +490,23 @@ class KFIR_Custom_Pricing_Agent {
 					</div>
 					
 					<button class="back-to-dashboard kfir-btn-primary" data-screen="dashboard" style="margin-top: 20px;">חזור למסך ראשי</button>
+				</div>
+			</div>
+
+			<!-- Modal לאישור פעולות -->
+			<div id="kfir-confirm-modal" class="kfir-modal" style="display: none;">
+				<div class="kfir-modal-overlay"></div>
+				<div class="kfir-modal-content">
+					<div class="kfir-modal-header">
+						<h3 id="kfir-modal-title">אישור פעולה</h3>
+					</div>
+					<div class="kfir-modal-body">
+						<p id="kfir-modal-message"></p>
+					</div>
+					<div class="kfir-modal-footer">
+						<button type="button" class="kfir-btn-secondary kfir-modal-cancel">ביטול</button>
+						<button type="button" class="kfir-btn-primary kfir-modal-confirm">אישור</button>
+					</div>
 				</div>
 			</div>
 		</div>

@@ -17,7 +17,7 @@
                 };
                 sessionStorage.setItem('kfir_agent_order_state', JSON.stringify(state));
             } catch (e) {
-                console.warn('Failed to save order state:', e);
+                // Silent fail
             }
         },
 
@@ -37,7 +37,7 @@
                     }
                 }
             } catch (e) {
-                console.warn('Failed to load order state:', e);
+                // Silent fail
             }
             return null;
         },
@@ -46,7 +46,7 @@
             try {
                 sessionStorage.removeItem('kfir_agent_order_state');
             } catch (e) {
-                console.warn('Failed to clear order state:', e);
+                // Silent fail
             }
         },
 
@@ -291,12 +291,7 @@
             
             // עריכת מחיר וכמות במסך סיכום
             $(document).on('change', '.edit-price, .edit-quantity', function(e) {
-                console.log('🔵 [DEBUG] Event triggered on:', e.target.className, 'Value:', $(e.target).val());
-                console.log('🔵 [DEBUG] Event target:', e.target);
-                console.log('🔵 [DEBUG] Current screen:', this.currentScreen);
-                console.log('🔵 [DEBUG] Calling updateCheckoutTotal...');
                 this.updateCheckoutTotal();
-                console.log('🔵 [DEBUG] updateCheckoutTotal called');
             }.bind(this));
             
             // שיטת משלוח - הצגת שדה דמי משלוח ועדכון מחיר אוטומטי
@@ -399,10 +394,13 @@
             
             // אם מבטלים הזמנה (חוזרים לדאשבורד), נציג התראה לפני ביטול
             if (screenName === 'dashboard' && (this.currentScreen === 'new-order' || this.currentScreen === 'checkout')) {
-                if (!confirm('האם אתה בטוח שברצונך לבטל את ההזמנה? כל הנתונים יימחקו.')) {
-                    return; // המשתמש ביטל את הפעולה
-                }
-                this.resetOrder();
+                this.showConfirmModal('האם אתה בטוח שברצונך לבטל את ההזמנה? כל הנתונים יימחקו.', 'ביטול הזמנה').then((confirmed) => {
+                    if (confirmed) {
+                        this.resetOrder();
+                        this.showScreen('dashboard');
+                    }
+                });
+                return; // נעצור כאן ונחכה לאישור
             }
             
             // אם עוברים למסך הזמנה חדשה, צריך לבחור לקוח (רק אם אין לקוח נבחר)
@@ -656,30 +654,7 @@
             $container.empty();
 
             products.forEach((product) => {
-                // חישוב המחיר הסופי
-                const basePrice = parseFloat(product.price || 0);
-                const customPrice = product.custom_price !== null && product.custom_price !== undefined 
-                    ? parseFloat(product.custom_price) : null;
-                const finalPrice = customPrice !== null ? customPrice : basePrice;
-                
-                // הוספה/עדכון ב-orderItems
-                const existingItem = this.orderItems.find(item => item.id == product.id);
-                if (!existingItem) {
-                    this.orderItems.push({
-                        id: parseInt(product.id),
-                        name: product.name || 'מוצר ללא שם',
-                        price: finalPrice, // מחיר סופי לשימוש
-                        basePrice: basePrice, // מחיר בסיסי לתצוגה
-                        customPrice: customPrice, // מחיר מותאם לתצוגה
-                        quantity: 1
-                    });
-                } else {
-                    // עדכון המחיר אם המוצר כבר קיים
-                    existingItem.price = finalPrice;
-                    existingItem.basePrice = basePrice;
-                    existingItem.customPrice = customPrice;
-                }
-                
+                // יצירת מוצר עם quantity controls (מתחיל ב-0, לא מסמן אוטומטית)
                 const $item = this.createProductItem({
                     id: product.id,
                     name: product.name,
@@ -688,33 +663,9 @@
                     custom_price: product.custom_price,
                     image_url: product.image_url || '',
                     image_url_full: product.image_url_full || ''
-                }, true);
+                }, false); // false = לא מסמן אוטומטית, quantity מתחיל ב-0
                 $container.append($item);
-                
-                // עדכון המחיר ב-orderItems לפי מה שמוצג ב-DOM (אם המוצר כבר קיים)
-                if (existingItem) {
-                    // חילוץ המחיר מה-DOM
-                    let price = 0;
-                    const $customPrice = $item.find('.custom-price');
-                    if ($customPrice.length && $customPrice.text().includes('מחיר ללקוח')) {
-                        const priceText = $customPrice.text().replace(/[^\d.]/g, '');
-                        price = priceText ? parseFloat(priceText) : 0;
-                    } else {
-                        const $productPrice = $item.find('.product-price');
-                        if ($productPrice.length) {
-                            const priceText = $productPrice.text().replace(/[^\d.]/g, '');
-                            price = priceText ? parseFloat(priceText) : 0;
-                        } else {
-                            const priceText = $customPrice.text().replace(/[^\d.]/g, '');
-                            price = priceText ? parseFloat(priceText) : 0;
-                        }
-                    }
-                    existingItem.price = price;
-                }
             });
-            
-            // עדכון הסיכום אחרי הוספת כל המוצרים
-            this.updateOrderSummary();
         },
 
         handleProductBrowseTab: function(e) {
@@ -783,7 +734,7 @@
             if (parentId > 0 && parentName) {
                 const $backItem = $(`
                     <div class="kfir-category-item kfir-category-back" data-back-button="1">
-                        <span class="kfir-category-name">⬅️ חזרה</span>
+                        <span class="kfir-category-name">➡️ חזרה</span>
                     </div>
                 `);
                 $backItem.on('click', () => {
@@ -805,7 +756,6 @@
                          data-has-children="${cat.has_children ? '1' : '0'}">
                         <span class="kfir-category-name">${cat.name}</span>
                         ${cat.count > 0 ? `<span class="kfir-category-count">(${cat.count})</span>` : ''}
-                        ${cat.has_children ? '<span class="kfir-category-has-children">📁</span>' : ''}
                     </div>
                 `);
                 $container.append($item);
@@ -913,7 +863,6 @@
                 const data = e.params.data;
                 // בדיקה שהנתונים תקינים
                 if (!data || !data.id) {
-                    console.error('Invalid select2 data:', data);
                     this.showNotification('שגיאה: לא ניתן להוסיף את המוצר', 'error');
                     return;
                 }
@@ -925,7 +874,6 @@
         addProductToOrder: function(productId, productName) {
             // בדיקה שהמזהה תקין
             if (!productId || productId === undefined || productId === null) {
-                console.error('Invalid productId:', productId);
                 this.showNotification('שגיאה: מזהה מוצר לא תקין', 'error');
                 return;
             }
@@ -933,7 +881,6 @@
             // המרה למספר אם צריך
             productId = parseInt(productId);
             if (isNaN(productId)) {
-                console.error('Invalid productId (not a number):', productId);
                 this.showNotification('שגיאה: מזהה מוצר לא תקין', 'error');
                 return;
             }
@@ -980,7 +927,6 @@
                         
                         // בדיקה שהפריט תקין לפני הוספה
                         if (!item.id || item.id === undefined || item.id === null) {
-                            console.error('Invalid item after processing:', item, 'Original product:', product);
                             this.showNotification('שגיאה: לא ניתן להוסיף את המוצר', 'error');
                             return;
                         }
@@ -1007,7 +953,6 @@
                 },
                 error: (xhr, status, error) => {
                     this.hideLoader();
-                    console.error('AJAX error:', status, error, xhr);
                     // אם אין endpoint, נוסיף עם מחיר 0
                     const item = {
                         id: productId,
@@ -1074,7 +1019,7 @@
                     </div>
                     <div class="quantity-controls">
                         <button class="quantity-minus" type="button">−</button>
-                        <input type="number" class="product-quantity" value="${isPurchased ? '1' : '0'}" min="0" data-product-id="${productId}">
+                        <input type="number" class="product-quantity" value="0" min="0" data-product-id="${productId}">
                         <button class="quantity-plus" type="button">+</button>
                     </div>
                 </div>
@@ -1208,7 +1153,6 @@
                     
                     // בדיקה שהמזהה תקין
                     if (!productId || isNaN(productId)) {
-                        console.error('Invalid productId from DOM:', $item.data('product-id'), $item);
                         return;
                     }
                     const productName = $item.find('strong').text() || 'מוצר ללא שם';
@@ -1254,7 +1198,6 @@
                     
                     // בדיקה שהפריט תקין לפני הוספה
                     if (!item.id || item.id === undefined || item.id === null) {
-                        console.error('Invalid item before push:', item);
                         return;
                     }
                     
@@ -1278,16 +1221,10 @@
         },
 
         displayCheckoutItems: function() {
-            console.log('🟣 [DEBUG] displayCheckoutItems STARTED');
-            console.log('🟣 [DEBUG] orderItems:', this.orderItems);
-            console.log('🟣 [DEBUG] Number of items:', this.orderItems ? this.orderItems.length : 0);
-            
             const $container = $('#checkout-items');
-            console.log('🟣 [DEBUG] Container exists:', $container.length > 0);
             $container.empty();
 
             if (!this.orderItems || this.orderItems.length === 0) {
-                console.warn('🟡 [DEBUG] No order items, showing empty state');
                 $container.html('<tr><td colspan="5" class="kfir-empty-state">אין פריטים בהזמנה</td></tr>');
                 return;
             }
@@ -1296,7 +1233,6 @@
 
             this.orderItems.forEach((item, index) => {
                 if (!item || !item.id) {
-                    console.error('🔴 [DEBUG] Invalid item at index', index, ':', item);
                     return;
                 }
 
@@ -1304,14 +1240,6 @@
                 const itemQuantity = parseInt(item.quantity) || 1;
                 const itemTotal = itemPrice * itemQuantity;
                 total += itemTotal;
-                
-                console.log(`🟣 [DEBUG] Item ${index}:`, {
-                    id: item.id,
-                    name: item.name,
-                    price: itemPrice,
-                    quantity: itemQuantity,
-                    itemTotal: itemTotal
-                });
 
                 const productImageUrl = item.image_url_full || item.image_url || '';
                 const $row = $(`
@@ -1332,62 +1260,36 @@
                     </tr>
                 `);
                 $container.append($row);
-                console.log(`🟣 [DEBUG] Added row for item ${item.id}`);
             });
 
-            console.log('🟣 [DEBUG] Final total:', total);
             const $checkoutTotal = $('#checkout-total');
-            console.log('🟣 [DEBUG] Checkout total element exists:', $checkoutTotal.length > 0);
             if ($checkoutTotal.length > 0) {
                 $checkoutTotal.text(total.toFixed(2));
-                console.log('🟣 [DEBUG] Set checkout total to:', total.toFixed(2));
-            } else {
-                console.error('🔴 [DEBUG] ERROR: Checkout total element not found!');
             }
-            
-            console.log('🟣 [DEBUG] displayCheckoutItems FINISHED');
         },
 
         updateCheckoutTotal: function() {
-            console.log('🟢 [DEBUG] updateCheckoutTotal STARTED');
-            console.log('🟢 [DEBUG] Current screen:', this.currentScreen);
-            console.log('🟢 [DEBUG] Number of rows:', $('#checkout-items tr[data-product-id]').length);
-            
             let total = 0;
             const updatedItems = [];
 
             const $checkoutItems = $('#checkout-items');
-            console.log('🟢 [DEBUG] Checkout items container exists:', $checkoutItems.length > 0);
-            console.log('🟢 [DEBUG] Checkout items HTML:', $checkoutItems.html().substring(0, 200));
             
             // בדיקה אם יש rows בכלל
             const $allRows = $checkoutItems.find('tr');
-            console.log('🟢 [DEBUG] Total rows in tbody:', $allRows.length);
             const $rowsWithData = $checkoutItems.find('tr[data-product-id]');
-            console.log('🟢 [DEBUG] Rows with data-product-id:', $rowsWithData.length);
             
             // אם אין rows עם data-product-id, ננסה למצוא את כל ה-rows
             const $rowsToProcess = $rowsWithData.length > 0 ? $rowsWithData : $allRows;
-            console.log('🟢 [DEBUG] Processing', $rowsToProcess.length, 'rows');
-            console.log('🟢 [DEBUG] Starting loop...');
 
             // שימוש בלולאת for רגילה במקום each כדי לוודא שאנחנו עובדים עם ה-DOM elements הנכונים
             for (let index = 0; index < $rowsToProcess.length; index++) {
                 try {
-                    console.log(`🟢 [DEBUG] === Processing row ${index} ===`);
                     const rowElement = $rowsToProcess[index];
                     const $row = $(rowElement);
-                    console.log(`🟢 [DEBUG] Row ${index} element exists:`, !!rowElement, 'jQuery length:', $row.length);
-                    // נשתמש ב-jQuery כדי לקבל את ה-HTML
-                    const rowHTML = rowElement && rowElement.outerHTML ? rowElement.outerHTML.substring(0, 300) : (rowElement ? 'Element exists but no outerHTML' : 'No row element');
-                    console.log(`🟢 [DEBUG] Row ${index} HTML:`, rowHTML);
                 
                 // שימוש ב-jQuery בלבד לקבלת data-product-id
                 const productIdAttrJQuery = $row.attr('data-product-id');
                 const productIdData = $row.data('product-id'); 
-                
-                console.log(`🟢 [DEBUG] Row ${index} data-product-id (attr):`, productIdAttrJQuery); 
-                console.log(`🟢 [DEBUG] Row ${index} data-product-id (data):`, productIdData);
                  
                 // ניסיון לקבל את ה-product-id בכל דרך אפשרית
                 const productId = parseInt(productIdAttrJQuery) || parseInt(productIdData) || 0;
@@ -1396,63 +1298,19 @@
                 const $priceInput = $row.find('.edit-price');
                 const $quantityInput = $row.find('.edit-quantity');
                 
-                // בדיקה אם ה-inputs נמצאים ישירות ב-row או בתוך td
-                const rowHTMLFull = $row.length > 0 && $row[0].outerHTML ? $row[0].outerHTML.substring(0, 500) : 'No element or no outerHTML';
-                console.log(`🟢 [DEBUG] Row ${index} structure:`, {
-                    rowHTML: rowHTMLFull,
-                    hasTdChildren: $row.find('td').length,
-                    directInputs: $row.children('input').length,
-                    priceInputInRow: $row.find('.edit-price').length,
-                    quantityInputInRow: $row.find('.edit-quantity').length,
-                    allInputs: $row.find('input').length,
-                    allInputsHTML: $row.find('input').map(function() { 
-                        return this.outerHTML ? this.outerHTML : 'No outerHTML'; 
-                    }).get()
-                });
-                
                 const price = parseFloat($priceInput.val()) || 0;
                 const quantity = parseInt($quantityInput.val()) || 1;
                 const itemTotal = price * quantity;
                 const productImageUrl = $row.attr('data-product-image') || $row.data('product-image') || '';
                 
-                console.log(`🟢 [DEBUG] Row ${index}:`, {
-                    productIdAttrJQuery: productIdAttrJQuery,
-                    productIdData: productIdData,
-                    productId: productId,
-                    price: price,
-                    quantity: quantity,
-                    itemTotal: itemTotal,
-                    priceInputExists: $priceInput.length > 0,
-                    quantityInputExists: $quantityInput.length > 0,
-                    priceInputValue: $priceInput.val(),
-                    quantityInputValue: $quantityInput.val(),
-                    priceInputElement: $priceInput[0] && $priceInput[0].outerHTML ? $priceInput[0].outerHTML : ($priceInput[0] ? 'Element exists but no outerHTML' : 'Not found'),
-                    quantityInputElement: $quantityInput[0] && $quantityInput[0].outerHTML ? $quantityInput[0].outerHTML : ($quantityInput[0] ? 'Element exists but no outerHTML' : 'Not found'),
-                    rowChildren: $row.children().length,
-                    rowTdCount: $row.find('td').length
-                });
-                
                 const $itemTotalCell = $row.find('.item-total');
-                console.log(`🟢 [DEBUG] Item total cell search:`, {
-                    found: $itemTotalCell.length > 0,
-                    selector: '.item-total',
-                    allCells: $row.find('td').length,
-                    cellHTML: $row.find('td').map(function(i) { 
-                        return `TD ${i}: ${$(this).text().substring(0, 50)} (has class item-total: ${$(this).hasClass('item-total')})`; 
-                    }).get(),
-                    itemTotalCellHTML: $itemTotalCell.length > 0 && $itemTotalCell[0].outerHTML ? $itemTotalCell[0].outerHTML : ($itemTotalCell.length > 0 ? 'Element exists but no outerHTML' : 'Not found')
-                });
                 
                 if ($itemTotalCell.length > 0) {
                     $itemTotalCell.text('₪' + itemTotal.toFixed(2));
-                    console.log(`🟢 [DEBUG] Updated item total cell to: ₪${itemTotal.toFixed(2)}`);
                 } else {
-                    console.error(`🔴 [DEBUG] ERROR: Item total cell not found for row ${index}`);
                     // ננסה למצוא את התא הרביעי (סה"כ)
                     const $fourthTd = $row.find('td').eq(3);
                     if ($fourthTd.length > 0) {
-                        const fourthTdHTML = $fourthTd[0].outerHTML ? $fourthTd[0].outerHTML : 'Element exists but no outerHTML';
-                        console.log(`🟢 [DEBUG] Found fourth TD, updating it instead:`, fourthTdHTML);
                         $fourthTd.text('₪' + itemTotal.toFixed(2));
                     }
                 }
@@ -1467,14 +1325,9 @@
                     if (productImageUrl) {
                         existingItem.image_url_full = productImageUrl;
                     }
-                    console.log(`🟢 [DEBUG] Updated orderItems for product ${productId}:`, existingItem);
-                } else {
-                    console.warn(`🟡 [DEBUG] WARNING: No existing item found for product ${productId}`);
                 }
-                console.log(`🟢 [DEBUG] === Finished processing row ${index} ===`);
                 } catch (error) {
-                    console.error(`🔴 [DEBUG] ERROR processing row ${index}:`, error);
-                    console.error(`🔴 [DEBUG] Error stack:`, error.stack);
+                    // Silent fail
                 }
             }
 
@@ -1482,41 +1335,34 @@
             const shippingCost = parseFloat($('#shipping-cost').val()) || 0;
             total += shippingCost;
             
-            console.log('🟢 [DEBUG] Final total:', total);
-            console.log('🟢 [DEBUG] Shipping cost:', shippingCost);
-            
             const $checkoutTotal = $('#checkout-total');
-            console.log('🟢 [DEBUG] Checkout total element exists:', $checkoutTotal.length > 0);
             if ($checkoutTotal.length > 0) {
                 $checkoutTotal.text(total.toFixed(2));
-                console.log('🟢 [DEBUG] Updated checkout total to:', total.toFixed(2));
-            } else {
-                console.error('🔴 [DEBUG] ERROR: Checkout total element not found!');
             }
-            
-            console.log('🟢 [DEBUG] updateCheckoutTotal FINISHED');
         },
 
         removeItem: function(e) {
-            // הצגת התראה לפני מחיקה
-            if (!confirm('האם אתה בטוח שברצונך למחוק את המוצר מההזמנה?')) {
-                return; // המשתמש ביטל את הפעולה
-            }
-            
             const $row = $(e.currentTarget).closest('tr');
             const productId = $row.data('product-id');
             
-            // הסרה מהרשימה
-            this.orderItems = this.orderItems.filter(item => item.id != productId);
-            
-            // עדכון גם ברשימת המוצרים במסך ההזמנה
-            $(`.product-item[data-product-id="${productId}"]`).find('.product-quantity').val(0).trigger('change');
-            
-            $row.fadeOut(300, () => {
-                $row.remove();
-                this.updateCheckoutTotal();
-                // שמירת מצב מעודכן
-                this.saveState();
+            // הצגת התראה לפני מחיקה
+            this.showConfirmModal('האם אתה בטוח שברצונך למחוק את המוצר מההזמנה?', 'מחיקת מוצר').then((confirmed) => {
+                if (!confirmed) {
+                    return; // המשתמש ביטל את הפעולה
+                }
+                
+                // הסרה מהרשימה
+                this.orderItems = this.orderItems.filter(item => item.id != productId);
+                
+                // עדכון גם ברשימת המוצרים במסך ההזמנה
+                $(`.product-item[data-product-id="${productId}"]`).find('.product-quantity').val(0).trigger('change');
+                
+                $row.fadeOut(300, () => {
+                    $row.remove();
+                    this.updateCheckoutTotal();
+                    // שמירת מצב מעודכן
+                    this.saveState();
+                });
             });
         },
 
@@ -1532,7 +1378,6 @@
                 const $row = $(this);
                 const productId = $row.data('product-id');
                 if (!productId) {
-                    console.error('Missing product-id for row:', $row);
                     return;
                 }
                 updatedItems.push({
@@ -1667,6 +1512,47 @@
                     $form.find('button[type="submit"]').prop('disabled', false).text('שמור לקוח');
                     this.showNotification('שגיאה ביצירת לקוח', 'error');
                 }
+            });
+        },
+
+        showConfirmModal: function(message, title = 'אישור פעולה') {
+            return new Promise((resolve) => {
+                const $modal = $('#kfir-confirm-modal');
+                const $title = $('#kfir-modal-title');
+                const $message = $('#kfir-modal-message');
+                const $confirmBtn = $('.kfir-modal-confirm');
+                const $cancelBtn = $('.kfir-modal-cancel');
+                const $overlay = $('.kfir-modal-overlay');
+
+                // עדכון תוכן ה-modal
+                $title.text(title);
+                $message.text(message);
+
+                // הצגת ה-modal
+                $modal.fadeIn(200);
+
+                // טיפול בלחיצה על אישור
+                const handleConfirm = () => {
+                    $modal.fadeOut(200);
+                    $confirmBtn.off('click', handleConfirm);
+                    $cancelBtn.off('click', handleCancel);
+                    $overlay.off('click', handleCancel);
+                    resolve(true);
+                };
+
+                // טיפול בלחיצה על ביטול
+                const handleCancel = () => {
+                    $modal.fadeOut(200);
+                    $confirmBtn.off('click', handleConfirm);
+                    $cancelBtn.off('click', handleCancel);
+                    $overlay.off('click', handleCancel);
+                    resolve(false);
+                };
+
+                // הוספת event listeners
+                $confirmBtn.on('click', handleConfirm);
+                $cancelBtn.on('click', handleCancel);
+                $overlay.on('click', handleCancel);
             });
         },
 

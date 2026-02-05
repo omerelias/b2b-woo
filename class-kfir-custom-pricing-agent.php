@@ -278,7 +278,7 @@ class KFIR_Custom_Pricing_Agent {
 					<div id="search-panel" class="kfir-tab-panel" style="display: none;">
 						<div class="kfir-form-group">
 							<label>חפש מוצרים</label>
-							<select id="product-search" class="kfir-select" data-placeholder="חפש מוצר או SKU..."></select>
+							<select id="product-search" class="kfir-select" data-placeholder="חפש מוצר או מקט..."></select>
 						</div>
 						<div id="all-products-section" class="kfir-products-section">
 							<h3>כל המוצרים</h3>

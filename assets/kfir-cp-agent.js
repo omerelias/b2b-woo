@@ -726,7 +726,7 @@
                     }
                 },
                 error: () => {
-                    this.hideLoader();
+                    this.hideLoader(); 
                     $container.html('<div class="kfir-empty-state">שגיאה בטעינת קטגוריות</div>');
                 }
             });
@@ -848,8 +848,13 @@
         initProductSearch: function() {
             $('#product-search').select2({
                 width: '100%',
-                placeholder: 'חפש מוצר או SKU...',
+                placeholder: 'חפש מוצר או מקט...',
                 minimumInputLength: 2,
+                language: {
+                    inputTooShort: function() {
+                        return 'אנא הזן לפחות 2 תווים';
+                    }
+                },
                 ajax: {
                     delay: 250,
                     url: kfirAgentData.ajaxurl,

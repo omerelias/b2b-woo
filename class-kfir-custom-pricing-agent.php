@@ -10,8 +10,12 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 class KFIR_Custom_Pricing_Agent {
 
+	/** דגל: יצירת הזמנה מממשק הסוכן – מונע מייל ריק ואז שולח מייל אחרי הוספת מוצרים */
+	public static $creating_order_via_agent = false;
+
 	public function __construct() {
 		add_action( 'init', [ $this, 'register_agent_role' ] );
+		add_filter( 'woocommerce_email_enabled_customer_on_hold_order', [ $this, 'maybe_disable_customer_new_order_email' ], 10, 2 );
 		add_shortcode( 'kfir_agent_interface', [ $this, 'render_interface' ] );
 		add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_assets' ] );
 		add_filter( 'body_class', [ $this, 'add_agent_body_class' ] );
@@ -460,7 +464,7 @@ class KFIR_Custom_Pricing_Agent {
 					</div>
 				</div>
 			</div>
-
+ 
 			<!-- מסך 6: הזמנה הושלמה -->
 			<div class="kfir-screen" id="screen-order-success" style="display: none;">
 				<div class="kfir-agent-card order-success"> 
@@ -1375,6 +1379,9 @@ class KFIR_Custom_Pricing_Agent {
 			wp_send_json_error( [ 'message' => 'חסרים פרטים' ] );
 		}
 
+		// מונעים מייל ללקוח בהזמנה ריקה – נשלח אחרי הוספת כל המוצרים
+		self::$creating_order_via_agent = true;
+
 		// יצירת הזמנה
 		$order = wc_create_order( [
 			'customer_id' => $customer_id,
@@ -1382,6 +1389,7 @@ class KFIR_Custom_Pricing_Agent {
 		] );
 
 		if ( is_wp_error( $order ) ) {
+			self::$creating_order_via_agent = false;
 			wp_send_json_error( [ 'message' => 'שגיאה ביצירת הזמנה: ' . $order->get_error_message() ] );
 		}
 
@@ -1494,11 +1502,32 @@ class KFIR_Custom_Pricing_Agent {
 		$order->calculate_totals();
 		$order->save();
 
+		// הפעלה מחדש של שליחת מייל – עכשיו עם טבלת מוצרים מלאה
+		self::$creating_order_via_agent = false;
+		if ( function_exists( 'WC' ) && WC()->mailer() ) {
+			$mailer = WC()->mailer();
+			$emails = $mailer->get_emails();
+			if ( ! empty( $emails['WC_Email_Customer_On_Hold_Order'] ) ) {
+				$emails['WC_Email_Customer_On_Hold_Order']->trigger( $order->get_id() );
+			}
+		}
+
 		wp_send_json_success( [
 			'order_id' => $order->get_id(),
 			'order_number' => $order->get_order_number(),
 			'total' => $order->get_total(),
 		] );
+	}
+
+	/**
+	 * מבטל שליחת מייל "ההזמנה התקבלה" כשההזמנה נוצרת ריקה (מממשק סוכן).
+	 * המייל נשלח ידנית אחרי הוספת כל המוצרים.
+	 */
+	public function maybe_disable_customer_new_order_email( $enabled, $order = null ) {
+		if ( self::$creating_order_via_agent ) {
+			return false;
+		}
+		return $enabled;
 	}
 
 	/**

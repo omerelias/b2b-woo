@@ -485,6 +485,9 @@ class KFIR_Custom_Pricing_Agent {
 							<button class="kfir-btn-primary icount-create-btn" data-doc-type="invrec" style="margin: 5px;">
 								📑 יצירת חשבונית מס קבלה
 							</button>
+							<button class="kfir-btn-primary icount-create-btn" data-doc-type="delcert" style="margin: 5px;">
+								📦 יצירת תעודת משלוח
+							</button>
 						</div>
 						<div id="icount-documents-status" style="margin-top: 15px;"></div>
 					</div>

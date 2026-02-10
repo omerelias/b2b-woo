@@ -20,6 +20,10 @@ class KFIR_Custom_Pricing_Agent {
 		add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_assets' ] );
 		add_filter( 'body_class', [ $this, 'add_agent_body_class' ] );
 		
+		// הוספת כפתור סוכן בעמוד הבית
+		add_action( 'wp_footer', [ $this, 'display_agent_button_on_home' ] );
+		add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_home_button_styles' ] );
+		
 		// AJAX endpoints
 		add_action( 'wp_ajax_kfir_agent_create_customer', [ $this, 'ajax_create_customer' ] );
 		add_action( 'wp_ajax_kfir_agent_search_customers', [ $this, 'ajax_search_customers' ] );
@@ -61,6 +65,145 @@ class KFIR_Custom_Pricing_Agent {
 		
 		$user = wp_get_current_user();
 		return in_array( 'agent', $user->roles ) || in_array( 'administrator', $user->roles );
+	}
+
+	/**
+	 * בדיקה אם המשתמש הנוכחי הוא סוכן או מנהל (פונקציה ציבורית)
+	 */
+	public function is_user_agent() {
+		if ( ! is_user_logged_in() ) {
+			return false;
+		}
+		
+		$user = wp_get_current_user();
+		return in_array( 'agent', $user->roles ) || in_array( 'administrator', $user->roles );
+	}
+
+	/**
+	 * מציאת URL של עמוד הסוכן
+	 */
+	private function get_agent_page_url() {
+		// חיפוש עמוד עם ה-shortcode
+		$pages = get_pages( [
+			'post_status' => 'publish',
+		] );
+		
+		foreach ( $pages as $page ) {
+			if ( has_shortcode( $page->post_content, 'kfir_agent_interface' ) ) {
+				return get_permalink( $page->ID );
+			}
+		}
+		
+		// אם לא נמצא, נחזיר null
+		return null;
+	}
+
+	/**
+	 * טעינת סגנונות לכפתור הסוכן בעמוד הבית
+	 */
+	public function enqueue_home_button_styles() {
+		// רק בעמוד הבית
+		if ( ! is_front_page() && ! is_home() ) {
+			return;
+		}
+		
+		// רק אם המשתמש הוא סוכן/מנהל
+		if ( ! $this->is_user_agent() ) {
+			return;
+		}
+		
+		// טעינת CSS אם לא נטען כבר
+		if ( ! wp_style_is( 'kfir-agent-css', 'enqueued' ) ) {
+			wp_enqueue_style(
+				'kfir-agent-css',
+				get_stylesheet_directory_uri() . '/inc/lib/custom-pricing/assets/kfir-cp-agent.css',
+				[],
+				'1.0.0'
+			);
+		}
+		
+		wp_add_inline_style( 'kfir-agent-css', $this->get_home_button_css() );
+	}
+
+	/**
+	 * CSS לכפתור הסוכן בעמוד הבית
+	 */
+	private function get_home_button_css() {
+		return '
+		.kfir-agent-home-button {
+			position: fixed;
+			bottom: 30px;
+			left: 30px;
+			z-index: 9999;
+			background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+			color: white;
+			border: none;
+			border-radius: 50px;
+			padding: 16px 32px;
+			font-size: 16px;
+			font-weight: 600;
+			cursor: pointer;
+			transition: all 0.3s ease;
+			box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4);
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			text-decoration: none;
+			font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+			direction: rtl;
+		}
+		
+		.kfir-agent-home-button:hover {
+			transform: translateY(-3px);
+			box-shadow: 0 12px 35px rgba(59, 130, 246, 0.5);
+			background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+		}
+		
+		.kfir-agent-home-button:active {
+			transform: translateY(-1px);
+		}
+		
+		.kfir-agent-home-button-icon {
+			font-size: 20px;
+		}
+		
+		@media (max-width: 768px) {
+			.kfir-agent-home-button {
+				bottom: 20px;
+				left: 20px;
+				padding: 14px 24px;
+				font-size: 14px;
+			}
+		}
+		';
+	}
+
+	/**
+	 * הצגת כפתור סוכן בעמוד הבית
+	 */
+	public function display_agent_button_on_home() {
+		// רק בעמוד הבית
+		if ( ! is_front_page() && ! is_home() ) {
+			return;
+		}
+		
+		// רק אם המשתמש מחובר והוא סוכן/מנהל
+		if ( ! $this->is_user_agent() ) {
+			return;
+		}
+		
+		// קבלת URL של עמוד הסוכן
+		$agent_url = $this->get_agent_page_url();
+		if ( ! $agent_url ) {
+			return; // אם לא נמצא עמוד סוכן, לא נציג כפתור
+		}
+		
+		?>
+		<a href="<?php echo esc_url( $agent_url ); ?>" class="kfir-agent-home-button">
+			<span class="kfir-agent-home-button-icon">👤</span>
+			<span>כניסה לעמוד סוכן</span>
+		</a>
+		<?php
 	}
 
 	/**
@@ -464,7 +607,7 @@ class KFIR_Custom_Pricing_Agent {
 					</div>
 				</div>
 			</div>
- 
+
 			<!-- מסך 6: הזמנה הושלמה -->
 			<div class="kfir-screen" id="screen-order-success" style="display: none;">
 				<div class="kfir-agent-card order-success"> 

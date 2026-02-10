@@ -944,6 +944,12 @@
                 language: {
                     inputTooShort: function() {
                         return 'אנא הזן לפחות 2 תווים';
+                    },
+                    searching: function() {
+                        return 'מחפש...';
+                    },
+                    noResults: function() {
+                        return 'לא נמצאו מוצרים';
                     }
                 },
                 ajax: {

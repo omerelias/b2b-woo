@@ -974,7 +974,28 @@
                     this.showNotification('שגיאה: לא ניתן להוסיף את המוצר', 'error');
                     return;
                 }
-                this.addProductToOrder(data.id, data.text);
+
+                // אם זה מוצר variable - ניכנס למוצר ונציג וריאציות במקום להוסיף ישירות לעגלה
+                if (data.is_variable) {
+                    const productId = parseInt(data.id);
+                    if (!productId || isNaN(productId)) {
+                        this.showNotification('שגיאה: מזהה מוצר לא תקין', 'error');
+                    } else {
+                        // מעבר לטאב קטגוריות כדי להשתמש בלוגיקה הקיימת של הצגת הוריאציות
+                        $('.kfir-tab-btn[data-tab=\"categories\"]').addClass('active');
+                        $('.kfir-tab-btn').not('[data-tab=\"categories\"]').removeClass('active');
+                        $('#categories-panel').show();
+                        $('#search-panel').hide();
+                        $('#purchased-panel').hide();
+
+                        // טעינת הוריאציות של המוצר הראשי
+                        this.loadProductVariations(productId);
+                    }
+                } else {
+                    // מוצר רגיל – נוסיף כמו קודם
+                    this.addProductToOrder(data.id, data.text);
+                }
+
                 $('#product-search').val(null).trigger('change');
             });
         },

@@ -580,7 +580,7 @@ class KFIR_Custom_Pricing_Agent {
 									'cost' => 0
 								];
 							}
-							
+							 
 							foreach ( $all_methods as $method_id => $method_data ) {
 								$method_title = is_array( $method_data ) ? $method_data['title'] : $method_data;
 								$method_cost = is_array( $method_data ) ? ( $method_data['cost'] ?? 0 ) : 0;
@@ -983,11 +983,12 @@ class KFIR_Custom_Pricing_Agent {
 		$q = sanitize_text_field( $_GET['q'] ?? '' );
 
 		$results = [];
+		$seen_products = [];
 		
-		// חיפוש לפי SKU
+		// חיפוש לפי SKU (גם במוצרים וגם בווריאציות)
 		$sku_query = new WP_Query( [
 			'post_type' => [ 'product', 'product_variation' ],
-			'posts_per_page' => 15,
+			'posts_per_page' => 30,
 			'suppress_filters' => true,
 			'meta_query' => [
 				[
@@ -1008,61 +1009,48 @@ class KFIR_Custom_Pricing_Agent {
 			'post_type' => [ 'product', 'product_variation' ],
 			's' => $q,
 			'post__not_in' => $ids,
-			'posts_per_page' => 15,
+			'posts_per_page' => 30,
 			'suppress_filters' => true,
 		] );
 
 		$posts = array_merge( $sku_query->posts, $title_query->posts );
 
 		foreach ( $posts as $p ) {
-			$prod = wc_get_product( $p->ID );
-			if ( ! $prod ) continue;
-			
-			if ( $prod->is_type( 'variation' ) ) {
-				$parent = wc_get_product( $prod->get_parent_id() );
-				$label = $parent ? $parent->get_name() : __( 'Variation', 'woocommerce' );
-				
-				// קבלת תכונות הוריאציה
-				$variation_attributes = $prod->get_variation_attributes();
-				$formatted_attrs = [];
-				
-				foreach ( $variation_attributes as $attr_name => $attr_value ) {
-					if ( empty( $attr_value ) ) continue;
-					
-					// decode של הערך - ננסה כמה פעמים אם צריך
-					$display_value = rawurldecode( $attr_value );
-					// אם עדיין יש encoding, ננסה שוב
-					if ( $display_value !== $attr_value && preg_match( '/%[0-9A-F]{2}/i', $display_value ) ) {
-						$display_value = rawurldecode( $display_value );
-					}
-					
-					// בדיקה אם זה taxonomy (pa_)
-					if ( strpos( $attr_name, 'pa_' ) === 0 ) {
-						$term = get_term_by( 'slug', $attr_value, $attr_name );
-						if ( $term && ! is_wp_error( $term ) ) {
-							$display_value = $term->name;
-						}
-					}
-					
-					// החלפת מקף לרווח
-					$display_value = str_replace( '-', ' ', $display_value );
-					
-					$formatted_attrs[] = $display_value;
-				}
-				
-				$attrs_text = ! empty( $formatted_attrs ) ? implode( ', ', $formatted_attrs ) : '';
-				$text = $attrs_text ? sprintf( '%s — %s', $label, $attrs_text ) : $label;
-			} else {
-				$text = $prod->get_name();
+			$product = wc_get_product( $p->ID );
+			if ( ! $product ) {
+				continue;
 			}
-			
-			// קבלת SKU או ID אם אין SKU
-			$sku = $prod->get_sku();
-			$display_id = $sku ? $sku : $prod->get_id();
-			
+
+			// אם זו וריאציה – נעבוד מול המוצר הראשי
+			if ( $product->is_type( 'variation' ) ) {
+				$parent_id = $product->get_parent_id();
+				$parent    = $parent_id ? wc_get_product( $parent_id ) : false;
+				if ( ! $parent ) {
+					continue;
+				}
+				$main_product = $parent;
+			} else {
+				$main_product = $product;
+			}
+
+			$main_id = $main_product->get_id();
+
+			// דילוג על כפילויות – כל מוצר ראשי יופיע פעם אחת בלבד
+			if ( isset( $seen_products[ $main_id ] ) ) {
+				continue;
+			}
+			$seen_products[ $main_id ] = true;
+
+			$text = $main_product->get_name();
+
+			// קבלת SKU או ID אם אין SKU (של המוצר הראשי)
+			$sku        = $main_product->get_sku();
+			$display_id = $sku ? $sku : $main_id;
+
 			$results[] = [
-				'id' => $prod->get_id(),
-				'text' => $text . '  #' . $display_id,
+				'id'          => $main_id,
+				'text'        => $text . '  #' . $display_id,
+				'is_variable' => $main_product->is_type( 'variable' ),
 			];
 		}
 

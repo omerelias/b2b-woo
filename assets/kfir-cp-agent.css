@@ -70,7 +70,7 @@
 
 .kfir-agent-dashboard h2 {
 
-	color: #fff;
+	color: #000;
 
 	font-size: 2.5rem;
 
@@ -104,8 +104,8 @@
 
     border: none;
     border-radius: 12px;
-    padding: 10px 10px;
-    font-size: 14px;
+	padding: 16px 20px;
+    font-size: 17px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
@@ -114,6 +114,11 @@
     overflow: hidden;
     min-width: 120px;
 
+}
+
+.kfir-btn-primary{
+	padding: 16px 20px;
+    font-size: 17px;
 }
 
 
@@ -317,7 +322,7 @@
 
 .kfir-form-group label {
 
-	color: #fff;
+	color: #000;
 
 	font-weight: 600;
 
@@ -528,7 +533,7 @@
 
 .customer-result small {
 
-	color: #fff;
+	color: #000;
 
 	font-size: 14px;
 
@@ -606,7 +611,7 @@
 
 	padding: 15px 20px;
 
-	background: #ffffff;
+	background: #000;
 
 	border-bottom: 1px solid #e5e5e5;
 
@@ -862,7 +867,7 @@
 
 .kfir-category-item.active .kfir-category-name,
 .kfir-category-item.active .kfir-category-count{
-	color: #fff;
+	color: #000;
 }
 
 
@@ -967,7 +972,7 @@
 
 	font-size: 1.15rem;
 
-	color: #fff;
+	color: #000;
 
 	margin-bottom: 12px;
 
@@ -1225,7 +1230,7 @@
 
 .product-item .product-details strong {
 
-	color: #fff;
+	color: #000;
 
 	font-size: 16px;
 
@@ -1243,7 +1248,7 @@
 
 .product-item .product-sku {
 
-	color: #fff;
+	color: #000;
 
 	font-size: 12px;
 
@@ -1255,7 +1260,7 @@
 
 .product-item .product-price {
 
-	color: #fff;
+	color: #000;
 
 	font-size: 14px;
 
@@ -1520,6 +1525,7 @@
 		padding: 5px;
 
 		font-size: 12px;
+		        height: 35px;
 
 	}
 
@@ -1575,13 +1581,13 @@
 
 	
 
-	.product-variable-indicator {
+	/*.product-variable-indicator {
 
 		min-width: 0;
 
 		flex-shrink: 1;
 
-	}
+	}*/
 
 }
 
@@ -2088,21 +2094,21 @@
 
 	font-size: 18px;
 
-	color: #fff;
+	color: #000;
 
 	margin: 15px 0;
 
 }
 
 .icount-documents-buttons h3{
-	color: #fff;
+	color: #000;
 }
 
 
 
 .order-success strong {
 
-	color: #fff;
+	color: #000;
 
 	font-size: 20px;
 
@@ -2174,7 +2180,7 @@
 
 	padding: 60px 20px;
 
-	color: #fff;
+	color: #000;
 
 }
 
@@ -2452,7 +2458,7 @@
 
 	.product-item {
 
-		flex-wrap: wrap;
+		/*flex-wrap: wrap;*/
 
 		align-items: center;
 
@@ -2982,7 +2988,7 @@ body.kfir-agent-page .userway_buttons_wrapper {
 
 body.kfir-agent-page {
 
-	margin: 0 !important;
+	/*margin: 0 !important;*/
 
 	padding: 0 !important;
 
@@ -3000,7 +3006,7 @@ body.kfir-agent-page .site-content,
 
 body.kfir-agent-page main {
 
-	margin: 0 !important;
+	/*margin: 0 !important;*/
 
 	padding: 0 !important;
 
@@ -3552,7 +3558,7 @@ body.kfir-agent-page main {
 
 	margin: 0;
 
-	color: #fff;
+	color: #000;
 
 	font-size: 1.25rem;
 

@@ -580,7 +580,7 @@ class KFIR_Custom_Pricing_Agent {
 									'cost' => 0
 								];
 							}
-							 
+
 							foreach ( $all_methods as $method_id => $method_data ) {
 								$method_title = is_array( $method_data ) ? $method_data['title'] : $method_data;
 								$method_cost = is_array( $method_data ) ? ( $method_data['cost'] ?? 0 ) : 0;

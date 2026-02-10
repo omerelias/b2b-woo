@@ -1173,7 +1173,21 @@
         },
 
         updateOrderSummary: function() {
-            // איסוף כל המוצרים עם quantity >= 1
+            // אם יש לנו orderItems (כולל מחירים שעודכנו במסך הצ'קאאוט) – נחשב מהם בלבד
+            if (this.orderItems && this.orderItems.length > 0) {
+                let total = 0;
+                this.orderItems.forEach(item => {
+                    const price = parseFloat(item.price) || 0;
+                    const quantity = parseInt(item.quantity) || 1;
+                    total += price * quantity;
+                });
+
+                $('#order-total').text(total.toFixed(2));
+                this.saveState();
+                return;
+            }
+
+            // fallback: אם אין orderItems (מצב התחלתי), נאסוף מה-DOM כמו קודם
             const selectedItems = [];
             
             $('.product-item').each(function() {
@@ -1796,7 +1810,7 @@
         },
 
         createIcountDocument: function(e) {
-            if (!this.currentOrderId) {
+            if (!this.currentOrderId) { 
                 this.showNotification('מספר הזמנה לא נמצא', 'error');
                 return;
             }

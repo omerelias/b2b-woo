@@ -449,7 +449,10 @@ class KFIR_Custom_Pricing_Agent {
 			<!-- מסך 5: סיכום הזמנה -->
 			<div class="kfir-screen" id="screen-checkout" style="display: none;">
 				<div class="kfir-agent-card">
-					<h2>סיכום הזמנה</h2>
+					<div class="checkout-header">
+						<h2>סיכום הזמנה</h2>
+						<button class="back-to-order kfir-btn-secondary" data-screen="new-order">⬅️ חזור להזמנה</button>
+					</div>
 					<div class="customer-info-summary">
 						<strong>לקוח:</strong> <span id="checkout-customer-name">-</span>
 					</div>
@@ -581,7 +584,7 @@ class KFIR_Custom_Pricing_Agent {
 								];
 							}
 
-							foreach ( $all_methods as $method_id => $method_data ) {
+							foreach ( $all_methods as $method_id => $method_data ) { 
 								$method_title = is_array( $method_data ) ? $method_data['title'] : $method_data;
 								$method_cost = is_array( $method_data ) ? ( $method_data['cost'] ?? 0 ) : 0;
 								
@@ -601,7 +604,6 @@ class KFIR_Custom_Pricing_Agent {
 					<div class="checkout-summary">
 						<div class="total">סה"כ: ₪<span id="checkout-total">0.00</span></div>
 						<div class="checkout-actions">
-							<button class="back-to-order kfir-btn-secondary" data-screen="new-order">⬅️ חזור להזמנה</button>
 							<button class="finalize-order kfir-btn-primary">✅ סיים הזמנה</button>
 						</div>
 					</div>

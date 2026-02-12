@@ -381,6 +381,13 @@
             this.currentScreen = screenName;
             // גלילה למעלה במובייל/טאבלט
             this.scrollToTop();
+
+            // במעבר למסך חיפוש לקוח – ניקוי שדה החיפוש והתוצאות, והסרת הודעות ישנות
+            if (screenName === 'find-customer') {
+                $('#customer-search').val('');
+                $('#customer-results').empty();
+                $('.kfir-notification').remove();
+            }
             
             // הוספה ל-history (אלא אם skipHistory = true)
             if (!skipHistory && screenName !== 'login') {

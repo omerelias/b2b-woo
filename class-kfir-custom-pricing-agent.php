@@ -589,7 +589,7 @@ class KFIR_Custom_Pricing_Agent {
 								$method_title = is_array( $method_data ) ? $method_data['title'] : $method_data;
 								$method_cost = is_array( $method_data ) ? ( $method_data['cost'] ?? 0 ) : 0;
 								
-								echo '<label class="shipping-method-option">';
+								echo '<label class="shipping-method-option">'; 
 								echo '<input type="radio" name="shipping_method" value="' . esc_attr( $method_id ) . '" data-method-id="' . esc_attr( $method_id ) . '" data-shipping-cost="' . esc_attr( $method_cost ) . '">';
 								echo esc_html( $method_title );
 								echo '</label>'; 
@@ -822,49 +822,79 @@ class KFIR_Custom_Pricing_Agent {
 //        die;
 		$users = get_users( $args );
 
-		// חיפוש גם לפי meta (טלפון, אימייל, שם עסק, ח.פ)
-		$meta_query = [
-			'relation' => 'AND',
+		// חיפוש גם לפי meta (טלפון, אימייל, שם עסק, ח.פ, שם מלא)
+		$name_parts = array_filter( array_map( 'trim', explode( ' ', $search_term ) ) );
+		$meta_or_conditions = [
 			[
-				'relation' => 'OR',
-				[
-					'key' => 'billing_phone',
-					'value' => $search_term,
-					'compare' => 'LIKE',
-				],
-				[
-					'key' => '_phone',
-					'value' => $search_term,
-					'compare' => 'LIKE',
-				],
-				[
-					'key' => 'billing_company',
-					'value' => $search_term,
-					'compare' => 'LIKE',
-				],
-				[
-					'key' => '_business_name',
-					'value' => $search_term,
-					'compare' => 'LIKE',
-				],
-				[
-					'key' => '_vat_id',
-					'value' => $search_term,
-					'compare' => 'LIKE',
-				],
-                [
-                    'key' => 'billing_first_name',
-                    'value' => $search_term,
-                    'compare' => 'LIKE',
-                ],
-                [
-                    'key' => 'billing_last_name',
-                    'value' => $search_term,
-                    'compare' => 'LIKE',
-                ],
-
-            ],
+				'key' => 'billing_phone',
+				'value' => $search_term,
+				'compare' => 'LIKE',
+			],
+			[
+				'key' => '_phone',
+				'value' => $search_term,
+				'compare' => 'LIKE',
+			],
+			[
+				'key' => 'billing_company',
+				'value' => $search_term,
+				'compare' => 'LIKE',
+			],
+			[
+				'key' => '_business_name',
+				'value' => $search_term,
+				'compare' => 'LIKE',
+			],
+			[
+				'key' => '_vat_id',
+				'value' => $search_term,
+				'compare' => 'LIKE',
+			],
+			[
+				'key' => 'billing_first_name',
+				'value' => $search_term,
+				'compare' => 'LIKE',
+			],
+			[
+				'key' => 'billing_last_name',
+				'value' => $search_term,
+				'compare' => 'LIKE',
+			],
 		];
+		// חיפוש לפי שם מלא: "עומר בדיקה" – מילה אחת בשם פרטי ומילה אחת בשם משפחה
+		if ( count( $name_parts ) >= 2 ) {
+			$meta_or_conditions[] = [
+				'relation' => 'AND',
+				[
+					'key' => 'billing_first_name',
+					'value' => $name_parts[0],
+					'compare' => 'LIKE',
+				],
+				[
+					'key' => 'billing_last_name',
+					'value' => $name_parts[1],
+					'compare' => 'LIKE',
+				],
+			];
+			// גם סדר הפוך: שם משפחה ואז שם פרטי
+			$meta_or_conditions[] = [
+				'relation' => 'AND',
+				[
+					'key' => 'billing_first_name',
+					'value' => $name_parts[1],
+					'compare' => 'LIKE',
+				],
+				[
+					'key' => 'billing_last_name',
+					'value' => $name_parts[0],
+					'compare' => 'LIKE',
+				],
+			];
+		}
+		$meta_query = array_merge(
+			[ 'relation' => 'AND' ],
+			[ array_merge( [ 'relation' => 'OR' ], $meta_or_conditions ) ]
+		);
 
 		// הוספת סינון לפי אתר אם זה מולטיסייט
 		if ( is_multisite() && $current_blog_id ) {

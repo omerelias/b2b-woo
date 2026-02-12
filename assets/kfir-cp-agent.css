@@ -1362,6 +1362,8 @@
 
 	justify-content: center;
 
+	order: 3
+
 }
 
 
@@ -1392,7 +1394,6 @@
 
 	align-items: center;
 
-	gap: 5px;
 
 }
 

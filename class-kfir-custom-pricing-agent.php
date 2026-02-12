@@ -16,6 +16,7 @@ class KFIR_Custom_Pricing_Agent {
 	public function __construct() {
 		add_action( 'init', [ $this, 'register_agent_role' ] );
 		add_filter( 'woocommerce_email_enabled_customer_on_hold_order', [ $this, 'maybe_disable_customer_new_order_email' ], 10, 2 );
+		add_filter( 'woocommerce_email_enabled_new_order', [ $this, 'maybe_disable_new_order_admin_email' ], 10, 2 );
 		add_shortcode( 'kfir_agent_interface', [ $this, 'render_interface' ] );
 		add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_assets' ] );
 		add_filter( 'body_class', [ $this, 'add_agent_body_class' ] );
@@ -584,14 +585,14 @@ class KFIR_Custom_Pricing_Agent {
 								];
 							}
 
-							foreach ( $all_methods as $method_id => $method_data ) { 
+							foreach ( $all_methods as $method_id => $method_data ) {
 								$method_title = is_array( $method_data ) ? $method_data['title'] : $method_data;
 								$method_cost = is_array( $method_data ) ? ( $method_data['cost'] ?? 0 ) : 0;
 								
 								echo '<label class="shipping-method-option">';
 								echo '<input type="radio" name="shipping_method" value="' . esc_attr( $method_id ) . '" data-method-id="' . esc_attr( $method_id ) . '" data-shipping-cost="' . esc_attr( $method_cost ) . '">';
 								echo esc_html( $method_title );
-								echo '</label>';
+								echo '</label>'; 
 							}
 							?>
 						</div>
@@ -1635,13 +1636,16 @@ class KFIR_Custom_Pricing_Agent {
 		$order->calculate_totals();
 		$order->save();
 
-		// הפעלה מחדש של שליחת מייל – עכשיו עם טבלת מוצרים מלאה
+		// הפעלה מחדש של שליחת מיילים – עכשיו עם טבלת מוצרים מלאה (ללקוח ולאדמין)
 		self::$creating_order_via_agent = false;
 		if ( function_exists( 'WC' ) && WC()->mailer() ) {
 			$mailer = WC()->mailer();
 			$emails = $mailer->get_emails();
 			if ( ! empty( $emails['WC_Email_Customer_On_Hold_Order'] ) ) {
 				$emails['WC_Email_Customer_On_Hold_Order']->trigger( $order->get_id() );
+			}
+			if ( ! empty( $emails['WC_Email_New_Order'] ) ) {
+				$emails['WC_Email_New_Order']->trigger( $order->get_id() );
 			}
 		}
 
@@ -1657,6 +1661,17 @@ class KFIR_Custom_Pricing_Agent {
 	 * המייל נשלח ידנית אחרי הוספת כל המוצרים.
 	 */
 	public function maybe_disable_customer_new_order_email( $enabled, $order = null ) {
+		if ( self::$creating_order_via_agent ) {
+			return false;
+		}
+		return $enabled;
+	}
+
+	/**
+	 * מבטל שליחת מייל "הזמנה חדשה" לאדמין כשההזמנה נוצרת ריקה (מממשק סוכן).
+	 * המייל נשלח ידנית אחרי הוספת כל המוצרים (עם טבלת מוצרים מלאה).
+	 */
+	public function maybe_disable_new_order_admin_email( $enabled, $order = null ) {
 		if ( self::$creating_order_via_agent ) {
 			return false;
 		}

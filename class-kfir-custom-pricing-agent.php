@@ -592,7 +592,7 @@ class KFIR_Custom_Pricing_Agent {
 								echo '<label class="shipping-method-option">'; 
 								echo '<input type="radio" name="shipping_method" value="' . esc_attr( $method_id ) . '" data-method-id="' . esc_attr( $method_id ) . '" data-shipping-cost="' . esc_attr( $method_cost ) . '">';
 								echo esc_html( $method_title );
-								echo '</label>'; 
+								echo '</label>';
 							}
 							?>
 						</div>
@@ -824,6 +824,7 @@ class KFIR_Custom_Pricing_Agent {
 
 		// חיפוש גם לפי meta (טלפון, אימייל, שם עסק, ח.פ, שם מלא)
 		$name_parts = array_filter( array_map( 'trim', explode( ' ', $search_term ) ) );
+		$phone_digits = preg_replace( '/\D/', '', $search_term );
 		$meta_or_conditions = [
 			[
 				'key' => 'billing_phone',
@@ -891,6 +892,20 @@ class KFIR_Custom_Pricing_Agent {
 				],
 			];
 		}
+		// חיפוש טלפון גמיש: רק ספרות, מתאים לכל פורמט (050-123-4567, 0501234567, +972501234567)
+		if ( strlen( $phone_digits ) >= 4 ) {
+			$phone_regex = '.*' . implode( '.*', str_split( $phone_digits ) ) . '.*';
+			$meta_or_conditions[] = [
+				'key' => 'billing_phone',
+				'value' => $phone_regex,
+				'compare' => 'REGEXP',
+			];
+			$meta_or_conditions[] = [
+				'key' => '_phone',
+				'value' => $phone_regex,
+				'compare' => 'REGEXP',
+			];
+		}
 		$meta_query = array_merge(
 			[ 'relation' => 'AND' ],
 			[ array_merge( [ 'relation' => 'OR' ], $meta_or_conditions ) ]
@@ -913,12 +928,9 @@ class KFIR_Custom_Pricing_Agent {
 		}
 
 		$meta_users = get_users( [
-			'role' => 'customer',
 			'meta_query' => $meta_query,
 			'number' => 20,
 		] );
-//        var_dump($meta_query);
-//        die;
 		// איחוד התוצאות
 		$all_users = array_merge( $users, $meta_users );
 		$unique_users = [];
